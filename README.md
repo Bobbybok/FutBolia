@@ -129,12 +129,14 @@ cd FutBolia\scripts
 launch-pc.bat
 ```
 
-Ou en CMD :
+Ou en CMD (ensuite ouvre le lien dans n’importe quel navigateur) :
 
 ```bat
 cd FutBolia\apps\mobile
-flutter run -d edge --web-port 8080 --dart-define=API_BASE_URL=https://futbolia-api.onrender.com/api/v1
+flutter run -d web-server --web-hostname localhost --web-port 8080 --dart-define=API_BASE_URL=https://futbolia-api.onrender.com/api/v1
 ```
+
+Lien : [http://localhost:8080](http://localhost:8080) — Chrome, Edge, Firefox, Opera.
 
 ---
 

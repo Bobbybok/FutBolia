@@ -71,7 +71,7 @@ Write-Host ""
 Write-Host "========================================"
 Write-Host " FUTBOLIA - apercu PC (web)"
 Write-Host "========================================"
-Write-Host " Lien local : $localUrl"
+Write-Host " Chrome / Edge / Firefox / Opera : $localUrl"
 Write-Host " API        : $apiBaseUrl"
 Write-Host "----------------------------------------"
 Write-Host ""
@@ -83,7 +83,24 @@ if ($LASTEXITCODE -ne 0) {
   exit 1
 }
 
-& $flutter run -d edge --web-port $webPort --dart-define="API_BASE_URL=$apiBaseUrl"
+# Open the default browser once the server is listening (any browser can use the same URL).
+Start-Job -ScriptBlock {
+  param($port, $url)
+  for ($i = 0; $i -lt 60; $i++) {
+    Start-Sleep -Seconds 2
+    try {
+      $client = New-Object System.Net.Sockets.TcpClient
+      $client.Connect('127.0.0.1', $port)
+      $client.Close()
+      Start-Process $url
+      return
+    } catch {
+      # still compiling
+    }
+  }
+} -ArgumentList $webPort, $localUrl | Out-Null
+
+& $flutter run -d web-server --web-hostname localhost --web-port $webPort --dart-define="API_BASE_URL=$apiBaseUrl"
 $code = $LASTEXITCODE
 
 Write-Host ""
