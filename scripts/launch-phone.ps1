@@ -1,9 +1,10 @@
 # FutBolia — launch on connected Android phone
 # Usage:
-#   .\scripts\launch-phone.ps1              → API LAN (PC)
-#   .\scripts\launch-phone.ps1 -Remote      → API Render (docs/render-api.md)
+#   .\scripts\launch-phone.ps1              → API Render (défaut app)
+#   .\scripts\launch-phone.ps1 -Local       → API LAN (PC NestJS)
 #   $env:FUTBOLIA_API_BASE_URL = "https://..." ; .\scripts\launch-phone.ps1
 param(
+  [switch]$Local,
   [switch]$Remote
 )
 
@@ -25,9 +26,7 @@ if ($env:FUTBOLIA_API_BASE_URL) {
   if ($apiBaseUrl -notmatch '/api/v1$') {
     $apiBaseUrl = "$apiBaseUrl/api/v1"
   }
-} elseif ($Remote) {
-  $apiBaseUrl = $renderApiDefault
-} else {
+} elseif ($Local) {
   # Detect LAN IP (prefer 192.168.x)
   $ip = Get-NetIPAddress -AddressFamily IPv4 |
     Where-Object { $_.IPAddress -like '192.168.*' -and $_.PrefixOrigin -ne 'WellKnown' } |
@@ -46,6 +45,9 @@ if ($env:FUTBOLIA_API_BASE_URL) {
   }
 
   $apiBaseUrl = "http://${ip}:3000/api/v1"
+} else {
+  # Default + -Remote: online Render API
+  $apiBaseUrl = $renderApiDefault
 }
 
 Write-Host " API : $apiBaseUrl"

@@ -78,7 +78,8 @@ npm run start:dev
 - Health : [http://localhost:3000/api/v1/health](http://localhost:3000/api/v1/health)
 - Sans Postgres : mets `DATABASE_ENABLED=false` dans `.env`
 - **API en ligne (Render free)** : [docs/render-api.md](docs/render-api.md) — Blueprint `render.yaml` + Neon
-- Téléphone → Render : `.\scripts\launch-phone.ps1 -Remote`
+- Téléphone → Render (défaut) : `.\scripts\launch-phone.ps1`
+- Téléphone → API locale : `.\scripts\launch-phone.ps1 -Local`
 
 ---
 
@@ -90,7 +91,11 @@ flutter pub get
 flutter run
 ```
 
-Émulateur Android : l’URL API par défaut pointe vers `http://10.0.2.2:3000/api/v1`.
+Émulateur / téléphone : l’URL API par défaut pointe vers Render  
+`https://futbolia-api.onrender.com/api/v1` (voir [docs/render-api.md](docs/render-api.md)).
+
+API locale (PC) : `.\scripts\launch-phone.ps1` ou  
+`--dart-define=API_BASE_URL=http://10.0.2.2:3000/api/v1`.
 
 ---
 

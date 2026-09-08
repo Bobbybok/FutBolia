@@ -2,10 +2,11 @@
 class AppConfig {
   static const String appName = 'FutBolia';
 
-  /// Android emulator → host machine loopback.
-  /// Physical device: replace with your LAN IP.
+  /// Online API (Render free). Override locally with:
+  /// `--dart-define=API_BASE_URL=http://10.0.2.2:3000/api/v1`
+  /// or `.\scripts\launch-phone.ps1 -Local` (LAN NestJS).
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:3000/api/v1',
+    defaultValue: 'https://futbolia-api.onrender.com/api/v1',
   );
 }
