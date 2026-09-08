@@ -31,16 +31,14 @@ class _AdminSecurityScreenState extends State<AdminSecurityScreen> {
     try {
       final data = await context.read<AuthSession>().api.adminSecurity();
       if (!mounted) return;
-      setState(() {
-        _data = data;
-        _loading = false;
-      });
-    } on ApiException catch (e) {
+      setState(() => _data = data);
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.message;
-        _loading = false;
+        _error = e is ApiException ? e.message : 'Chargement impossible';
       });
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

@@ -33,16 +33,14 @@ class _AdminTournamentsScreenState extends State<AdminTournamentsScreen> {
     try {
       final items = await _api.adminListTournaments();
       if (!mounted) return;
-      setState(() {
-        _items = items;
-        _loading = false;
-      });
-    } on ApiException catch (e) {
+      setState(() => _items = items);
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.message;
-        _loading = false;
+        _error = e is ApiException ? e.message : 'Chargement impossible';
       });
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

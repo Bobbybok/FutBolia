@@ -38,14 +38,14 @@ class _AdminModerationScreenState extends State<AdminModerationScreen> {
       setState(() {
         _reports = reports;
         _messages = messages;
-        _loading = false;
       });
-    } on ApiException catch (e) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.message;
-        _loading = false;
+        _error = e is ApiException ? e.message : 'Chargement impossible';
       });
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

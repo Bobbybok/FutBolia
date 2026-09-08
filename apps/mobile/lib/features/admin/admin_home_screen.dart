@@ -63,7 +63,7 @@ class AdminHomeScreen extends StatelessWidget {
           if (user.hasPermission(AdminPermissions.manageUsers))
             _AdminCard(
               title: 'Utilisateurs',
-              subtitle: 'Recherche, ban, reset, historique',
+              subtitle: 'Recherche, ban, e-mail, suppression',
               icon: Icons.people_outline,
               onTap: () {
                 Navigator.of(context).push(

@@ -90,13 +90,11 @@ class ApiClient {
   }
 
   Future<List<Map<String, dynamic>>> adminSearchUsers(String query) async {
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}/admin/users').replace(
-      queryParameters: query.trim().isEmpty ? null : {'q': query.trim()},
-    );
-    final response = await _client
-        .get(uri, headers: _headers(auth: true))
-        .timeout(const Duration(seconds: 15));
-    return _asMapList(_decodeDynamic(response));
+    final q = query.trim();
+    final path = q.isEmpty
+        ? '/admin/users'
+        : '/admin/users?q=${Uri.encodeQueryComponent(q)}';
+    return _getList(path);
   }
 
   Future<Map<String, dynamic>> adminGrant({
@@ -171,6 +169,17 @@ class ApiClient {
     return _post('/admin/users/$id/revoke-sessions', {}, auth: true);
   }
 
+  Future<Map<String, dynamic>> adminPatchUser(
+    String id,
+    Map<String, dynamic> body,
+  ) {
+    return _patch('/admin/users/$id', body, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminDeleteUser(String id) {
+    return _delete('/admin/users/$id');
+  }
+
   Future<List<Map<String, dynamic>>> adminListTournaments() {
     return _getList('/admin/tournaments');
   }
@@ -242,8 +251,28 @@ class ApiClient {
   }
 
   Future<List<Map<String, dynamic>>> _getList(String path) async {
-    final decoded = await _getDynamic(path, auth: true);
-    return _asMapList(decoded);
+    return _withAuthRetry(true, () async {
+      try {
+        final decoded = await _getDynamic(path, auth: true);
+        return _asMapList(decoded);
+      } on ApiException {
+        rethrow;
+      } on TimeoutException {
+        throw ApiException(
+          'Délai dépassé. Vérifie que l’API tourne (${AppConfig.apiBaseUrl}).',
+        );
+      } on SocketException {
+        throw ApiException(
+          'Impossible de joindre le serveur (${AppConfig.apiBaseUrl}).',
+        );
+      } on http.ClientException catch (e) {
+        throw ApiException(
+          'Connexion impossible: ${e.message}. URL: ${AppConfig.apiBaseUrl}',
+        );
+      } catch (_) {
+        throw ApiException('Chargement impossible');
+      }
+    });
   }
 
   List<Map<String, dynamic>> _asMapList(dynamic decoded) {
@@ -727,7 +756,16 @@ class ApiClient {
   dynamic _decodeDynamic(http.Response response) {
     dynamic decoded;
     if (response.body.isNotEmpty) {
-      decoded = jsonDecode(response.body);
+      try {
+        decoded = jsonDecode(response.body);
+      } on FormatException {
+        throw ApiException(
+          response.statusCode >= 400
+              ? 'Erreur serveur (${response.statusCode})'
+              : 'Réponse invalide du serveur',
+          statusCode: response.statusCode,
+        );
+      }
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {

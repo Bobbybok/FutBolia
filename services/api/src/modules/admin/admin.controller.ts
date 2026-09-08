@@ -25,6 +25,7 @@ import {
   ForceTeamStatusDto,
   GrantAdminDto,
   GrantModeratorDto,
+  PatchAdminUserDto,
   PatchTournamentDto,
   ResolveReportDto,
   TransferOwnerDto,
@@ -185,6 +186,25 @@ export class AdminController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.admin.revokeUserSessions(actor, id);
+  }
+
+  @Patch('users/:id')
+  @RequirePermission(AdminPermissionType.MANAGE_USERS)
+  patchUser(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PatchAdminUserDto,
+  ) {
+    return this.admin.updateUser(actor, id, dto);
+  }
+
+  @Delete('users/:id')
+  @RequirePermission(AdminPermissionType.MANAGE_USERS)
+  deleteUser(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.admin.deleteUser(actor, id);
   }
 
   @Get('tournaments')

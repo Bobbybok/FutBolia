@@ -1,12 +1,14 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { DataSource, In, IsNull, Not, Repository } from 'typeorm';
+import * as argon2 from 'argon2';
+import { DataSource, ILike, In, IsNull, Not, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
 import {
   AdminPermissionType,
@@ -22,6 +24,7 @@ import {
   UserStatus,
 } from '../../common/enums';
 import { User } from '../users/entities/user.entity';
+import { Profile } from '../users/entities/profile.entity';
 import { AdminPermission } from './entities/admin-permission.entity';
 import { AuditLog } from './entities/audit-log.entity';
 import { Report } from './entities/report.entity';
@@ -37,6 +40,7 @@ import {
   BanUserDto,
   CreateReportDto,
   ForceTeamStatusDto,
+  PatchAdminUserDto,
   PatchTournamentDto,
   ResolveReportDto,
 } from './dto/admin.dto';
@@ -57,6 +61,10 @@ export class AdminService {
 
   private get users(): Repository<User> {
     return this.db.getRepository(User);
+  }
+
+  private get profiles(): Repository<Profile> {
+    return this.db.getRepository(Profile);
   }
 
   private get permissions(): Repository<AdminPermission> {
@@ -105,22 +113,23 @@ export class AdminService {
 
   async searchUsers(query?: string) {
     const q = query?.trim();
-    const qb = this.users
-      .createQueryBuilder('user')
-      .leftJoinAndSelect('user.profile', 'profile')
-      .where('user.deleted_at IS NULL')
-      .orderBy('user.created_at', 'DESC')
-      .take(40);
-
-    if (q) {
-      qb.andWhere('(user.email ILIKE :q OR profile.pseudo ILIKE :q)', {
-        q: `%${q}%`,
-      });
-    }
-
-    const users = await qb.getMany();
+    const users = await this.users.find({
+      relations: { profile: true },
+      order: { createdAt: 'DESC' },
+      take: 40,
+      ...(q
+        ? {
+            where: [
+              { email: ILike(`%${q}%`) },
+              { profile: { pseudo: ILike(`%${q}%`) } },
+            ],
+          }
+        : {}),
+    });
     const permMap = await this.permissionMap(users.map((u) => u.id));
-    return users.map((user) => this.toListUser(user, permMap.get(user.id) ?? []));
+    return users.map((user) =>
+      this.toListUser(user, permMap.get(user.id) ?? []),
+    );
   }
 
   async getUser(id: string) {
@@ -315,6 +324,98 @@ export class AdminService {
     await this.requireUser(userId);
     await this.auth.invalidateSessions(userId);
     await this.audit(actor.id, 'revoke_sessions', userId, {});
+    return { success: true };
+  }
+
+  async updateUser(actor: AuthUser, userId: string, dto: PatchAdminUserDto) {
+    const user = await this.requireUser(userId);
+    const profile = await this.profiles.findOne({ where: { userId } });
+    if (!profile) {
+      throw new NotFoundException('Profil introuvable');
+    }
+
+    const hasChange =
+      Boolean(dto.email) ||
+      Boolean(dto.pseudo) ||
+      Boolean(dto.password) ||
+      dto.firstName !== undefined ||
+      dto.city !== undefined;
+    if (!hasChange) {
+      throw new BadRequestException('Rien à modifier');
+    }
+
+    const changes: Record<string, unknown> = {};
+    let revokeSessions = false;
+
+    if (dto.email) {
+      const email = dto.email.trim().toLowerCase();
+      if (email !== user.email) {
+        const taken = await this.users.findOne({ where: { email } });
+        if (taken && taken.id !== userId) {
+          throw new ConflictException('E-mail déjà enregistré');
+        }
+        user.email = email;
+        user.emailVerifiedAt = new Date();
+        changes.email = email;
+        revokeSessions = true;
+      }
+    }
+
+    if (dto.password) {
+      user.passwordHash = await argon2.hash(dto.password);
+      changes.password = true;
+      revokeSessions = true;
+    }
+
+    if (dto.pseudo && dto.pseudo !== profile.pseudo) {
+      const taken = await this.profiles.findOne({
+        where: { pseudo: dto.pseudo, userId: Not(userId) },
+      });
+      if (taken) {
+        throw new ConflictException('Pseudo déjà utilisé');
+      }
+      profile.pseudo = dto.pseudo.trim();
+      changes.pseudo = profile.pseudo;
+    }
+
+    if (dto.firstName !== undefined) {
+      profile.firstName = dto.firstName?.trim() || null;
+      changes.firstName = profile.firstName;
+    }
+    if (dto.city !== undefined) {
+      profile.city = dto.city?.trim() || null;
+      changes.city = profile.city;
+    }
+
+    await this.users.save(user);
+    await this.profiles.save(profile);
+    if (revokeSessions) {
+      await this.auth.invalidateSessions(userId);
+    }
+    await this.audit(actor.id, 'update_user', userId, changes);
+    return this.getUser(userId);
+  }
+
+  async deleteUser(actor: AuthUser, userId: string) {
+    this.assertNotSelf(actor.id, userId);
+    const user = await this.requireUser(userId);
+    if (isPlatformAdmin(user.globalRole)) {
+      await this.protectLastManageAdmins(userId, [], actor.id);
+    }
+
+    const profile = await this.profiles.findOne({ where: { userId } });
+    if (profile) {
+      profile.pseudo = `deleted_${user.id.replace(/-/g, '').slice(0, 12)}`;
+      await this.profiles.save(profile);
+    }
+
+    user.status = UserStatus.DELETED;
+    user.email = `deleted+${user.id}@futbolia.invalid`;
+    await this.users.save(user);
+    await this.permissions.delete({ userId });
+    await this.auth.invalidateSessions(userId);
+    await this.users.softDelete(user.id);
+    await this.audit(actor.id, 'delete_user', userId, {});
     return { success: true };
   }
 

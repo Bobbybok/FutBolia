@@ -30,16 +30,14 @@ class _AdminStatsScreenState extends State<AdminStatsScreen> {
     try {
       final stats = await context.read<AuthSession>().api.adminStats();
       if (!mounted) return;
-      setState(() {
-        _stats = stats;
-        _loading = false;
-      });
-    } on ApiException catch (e) {
+      setState(() => _stats = stats);
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.message;
-        _loading = false;
+        _error = e is ApiException ? e.message : 'Chargement impossible';
       });
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

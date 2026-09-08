@@ -42,16 +42,14 @@ class _GrantAdminScreenState extends State<GrantAdminScreen> {
     try {
       final admins = await _api.adminListAdmins();
       if (!mounted) return;
-      setState(() {
-        _admins = admins;
-        _loading = false;
-      });
-    } on ApiException catch (e) {
+      setState(() => _admins = admins);
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.message;
-        _loading = false;
+        _error = e is ApiException ? e.message : 'Chargement impossible';
       });
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -63,16 +61,14 @@ class _GrantAdminScreenState extends State<GrantAdminScreen> {
     try {
       final users = await _api.adminSearchUsers(_search.text);
       if (!mounted) return;
-      setState(() {
-        _users = users;
-        _loading = false;
-      });
-    } on ApiException catch (e) {
+      setState(() => _users = users);
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.message;
-        _loading = false;
+        _error = e is ApiException ? e.message : 'Chargement impossible';
       });
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
