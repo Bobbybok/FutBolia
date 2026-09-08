@@ -23,6 +23,14 @@ Projet Neon : `morning-bird-81257321` (branch `production`)
 
 Plus besoin de `docker compose up` pour Postgres.
 
+## API en ligne (Render)
+
+Une fois déployée (voir [render-api.md](./render-api.md)), mobile et ami peuvent utiliser :
+
+`https://futbolia-api.onrender.com/api/v1`
+
+sans lancer Nest en local.
+
 ## Fichiers
 
 | Fichier | Commit ? |

@@ -77,6 +77,8 @@ npm run start:dev
 
 - Health : [http://localhost:3000/api/v1/health](http://localhost:3000/api/v1/health)
 - Sans Postgres : mets `DATABASE_ENABLED=false` dans `.env`
+- **API en ligne (Render free)** : [docs/render-api.md](docs/render-api.md) — Blueprint `render.yaml` + Neon
+- Téléphone → Render : `.\scripts\launch-phone.ps1 -Remote`
 
 ---
 

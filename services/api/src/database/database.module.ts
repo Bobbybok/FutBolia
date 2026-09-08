@@ -66,7 +66,14 @@ export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
             ForumPost,
             ForumReply,
           ],
-          synchronize: config.get<string>('NODE_ENV') !== 'production',
+          synchronize: (() => {
+            const explicit = config.get<string>('DATABASE_SYNC');
+            if (explicit != null && explicit !== '') {
+              return explicit.toLowerCase() === 'true';
+            }
+            // Default: sync in non-production (no migrations yet).
+            return config.get<string>('NODE_ENV') !== 'production';
+          })(),
           logging: config.get<string>('DATABASE_LOGGING') === 'true',
         });
 

@@ -1,0 +1,51 @@
+# FutBolia API — Render Blueprint (free tier)
+# Docs: docs/render-api.md
+# After first deploy, set DATABASE_URL in the Render dashboard (Neon pooled URL).
+
+services:
+  - type: web
+    name: futbolia-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: services/api
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - services/api/**
+        - render.yaml
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_PREFIX
+        value: api/v1
+      - key: DATABASE_ENABLED
+        value: "true"
+      - key: DATABASE_SSL
+        value: "true"
+      # Keep schema in sync until TypeORM migrations exist (single free instance).
+      - key: DATABASE_SYNC
+        value: "true"
+      - key: DATABASE_LOGGING
+        value: "false"
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
+      - key: THROTTLE_TTL_MS
+        value: "60000"
+      - key: THROTTLE_LIMIT
+        value: "100"
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      # Paste Neon connection string in Render dashboard (Dashboard → Environment).
+      - key: DATABASE_URL
+        sync: false
+      # Set to https://futbolia-api.onrender.com after first deploy (or your custom name).
+      - key: APP_URL
+        sync: false
