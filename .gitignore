@@ -63,3 +63,4 @@ data/
 # OS
 Desktop.ini
 .neon
+*.lnk

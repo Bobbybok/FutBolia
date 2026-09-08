@@ -18,7 +18,7 @@ import { validateEnv } from './config/env.validation';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env', '../../.env'],
+      envFilePath: ['.env', '../../.env.local', '../../.env'],
       validate: validateEnv,
     }),
     ThrottlerModule.forRootAsync({

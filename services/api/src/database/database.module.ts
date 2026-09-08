@@ -1,6 +1,10 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import {
+  postgresSslOption,
+  resolveDatabaseConfig,
+} from '../config/database-config';
 import { User } from '../modules/users/entities/user.entity';
 import { Profile } from '../modules/users/entities/profile.entity';
 import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
@@ -32,25 +36,16 @@ export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
           return null;
         }
 
-        const databaseUrl = config.get<string>('DATABASE_URL');
-        const useSsl =
-          config.get<string>('DATABASE_SSL') === 'true' ||
-          Boolean(databaseUrl && /sslmode=require/i.test(databaseUrl));
+        const db = resolveDatabaseConfig(config);
 
         const dataSource = new DataSource({
           type: 'postgres',
-          ...(databaseUrl
-            ? {
-                url: databaseUrl,
-              }
-            : {
-                host: config.get<string>('DATABASE_HOST', 'localhost'),
-                port: Number(config.get('DATABASE_PORT') ?? 5432),
-                username: config.get<string>('DATABASE_USER', 'futbolia'),
-                password: config.get<string>('DATABASE_PASSWORD'),
-                database: config.get<string>('DATABASE_NAME', 'futbolia_dev'),
-              }),
-          ssl: useSsl ? { rejectUnauthorized: false } : false,
+          host: db.host,
+          port: db.port,
+          username: db.username,
+          password: db.password,
+          database: db.database,
+          ssl: postgresSslOption(db.ssl),
           entities: [
             User,
             Profile,

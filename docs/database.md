@@ -2,9 +2,11 @@
 
 ## DEV
 
-- PostgreSQL 16 via `docker compose up -d` (racine du repo)
-- Variables : `services/api/.env` (copier depuis `.env.example`)
+- **Docker local** : `docker compose up -d` (racine du repo) + variables discrètes dans `services/api/.env`
+- **Neon** : `neon link` écrit `.env.local` à la racine. L’API lit `DATABASE_URL_UNPOOLED` (prioritaire) puis `DATABASE_URL`, sinon `DATABASE_HOST` / `USER` / `PASSWORD` / `NAME`
+- `DATABASE_SSL=true` obligatoire pour Neon
 - `DATABASE_ENABLED=false` autorise le démarrage API sans Postgres (smoke test Phase 1)
+- Chaque poste Docker a sa propre base. Une base Neon partagée est commune à tous ceux qui s’y connectent.
 
 ## ORM
 

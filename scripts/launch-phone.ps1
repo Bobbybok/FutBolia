@@ -10,9 +10,50 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$project = "D:\Logiciels\Developpement App Partouche\FutBolia\apps\mobile"
-$flutter = "D:\Logiciels\flutter\bin\flutter.bat"
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Split-Path -Parent $scriptDir
+$project = Join-Path $repoRoot "apps\mobile"
 $renderApiDefault = "https://futbolia-api.onrender.com/api/v1"
+
+function Resolve-Flutter {
+  if ($env:FUTBOLIA_FLUTTER -and (Test-Path $env:FUTBOLIA_FLUTTER)) {
+    return $env:FUTBOLIA_FLUTTER
+  }
+
+  $fromPath = Get-Command flutter.bat -ErrorAction SilentlyContinue
+  if (-not $fromPath) {
+    $fromPath = Get-Command flutter -ErrorAction SilentlyContinue
+  }
+  if ($fromPath) {
+    return $fromPath.Source
+  }
+
+  $fromHome = Join-Path $env:USERPROFILE "flutter\bin\flutter.bat"
+  if (Test-Path $fromHome) {
+    return $fromHome
+  }
+
+  $legacy = "D:\Logiciels\flutter\bin\flutter.bat"
+  if (Test-Path $legacy) {
+    return $legacy
+  }
+
+  return $null
+}
+
+$flutter = Resolve-Flutter
+if (-not $flutter) {
+  Write-Host "[ERREUR] Flutter introuvable." -ForegroundColor Red
+  Write-Host "Ajoute Flutter au PATH, ou definis FUTBOLIA_FLUTTER (chemin vers flutter.bat)."
+  Read-Host "Entree pour fermer"
+  exit 1
+}
+
+if (-not (Test-Path $project)) {
+  Write-Host "[ERREUR] Projet mobile introuvable : $project" -ForegroundColor Red
+  Read-Host "Entree pour fermer"
+  exit 1
+}
 
 Set-Location $project
 
@@ -75,7 +116,7 @@ if (-not $deviceId) {
 
 Write-Host " Device : $deviceId"
 Write-Host "----------------------------------------"
-Write-Host " Build Phase 2 (auth) en cours..."
+Write-Host " Build en cours..."
 Write-Host "========================================"
 Write-Host ""
 

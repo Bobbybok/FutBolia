@@ -33,69 +33,130 @@ FutBolia/
 └── README.md
 ```
 
+Clone :
+
+```bat
+git clone https://github.com/Bobbybok/FutBolia.git
+cd FutBolia
+```
+
 ---
 
 ## Prérequis
 
-- Node.js 20+
-- Flutter 3.24+ (stable)
 - Git
+- Node.js 20+
+- Flutter 3.24+ (stable) — dans le PATH
 - Docker Desktop (recommandé pour PostgreSQL) **ou** une instance PostgreSQL 16
-
-> Sur cette machine de développement : si Docker n’est pas installé, lance l’API avec `DATABASE_ENABLED=false` pour un smoke test, puis installe Docker avant la Phase 2.
+- Android Studio + Android SDK (téléphone ou émulateur)
 
 ---
 
-## Configuration
+## Configuration API
 
-```bash
-# À la racine du projet
-cp .env.example services/api/.env
+Le template est à la **racine** du dépôt (`.env.example`), pas dans `services/api`.
+
+```bat
+cd FutBolia
+copy .env.example services\api\.env
 ```
 
-Adapte les secrets dans `services/api/.env` (ne jamais committer ce fichier).
+Édite `services/api/.env` :
+
+- `JWT_ACCESS_SECRET` et `JWT_REFRESH_SECRET` (au moins 32 caractères chacun)
+- mot de passe Postgres : **doit rester identique** à `POSTGRES_PASSWORD` dans `docker-compose.yml` (valeur d’exemple : `futbolia_dev_change_me`)
+
+**Ne commit jamais** `services/api/.env`.
 
 ---
 
 ## Base de données (DEV)
 
-```bash
+```bat
+cd FutBolia
 docker compose up -d
 ```
 
 Vérifie que le conteneur `futbolia-postgres-dev` est healthy.
 
+Chaque développeur a **sa propre base locale** (Docker). Les comptes créés sur un PC n’existent pas sur un autre.
+
+**Neon (optionnel)** : `neon login` puis `neon link` à la racine. L’API lit `DATABASE_URL_UNPOOLED` depuis `services/api/.env` ou `.env.local`. Mets `DATABASE_SSL=true`. Évite la branche `production` pour `start:dev` (TypeORM `synchronize` est actif hors `NODE_ENV=production`).
+
 ---
 
 ## Lancer l’API
 
-```bash
-cd services/api
+```bat
+cd FutBolia\services\api
 npm install
 npm run start:dev
 ```
 
-- Health : [http://localhost:3000/api/v1/health](http://localhost:3000/api/v1/health)
-- Sans Postgres : mets `DATABASE_ENABLED=false` dans `.env`
+Vérifie : [http://localhost:3000/api/v1/health](http://localhost:3000/api/v1/health)
+
+Sans Postgres : mets `DATABASE_ENABLED=false` dans `.env`.
+
 - **API en ligne (Render free)** : [docs/render-api.md](docs/render-api.md) — Blueprint `render.yaml` + Neon
-- Téléphone → Render (défaut) : `.\scripts\launch-phone.ps1`
+- Téléphone → Render (défaut) : `.\scripts\launch-phone.ps1` ou le raccourci `Flutter.lnk`
 - Téléphone → API locale : `.\scripts\launch-phone.ps1 -Local`
 
 ---
 
 ## Lancer l’app mobile
 
-```bash
-cd apps/mobile
+```bat
+cd FutBolia\apps\mobile
 flutter pub get
-flutter run
 ```
 
 Émulateur / téléphone : l’URL API par défaut pointe vers Render  
 `https://futbolia-api.onrender.com/api/v1` (voir [docs/render-api.md](docs/render-api.md)).
 
-API locale (PC) : `.\scripts\launch-phone.ps1` ou  
-`--dart-define=API_BASE_URL=http://10.0.2.2:3000/api/v1`.
+**Téléphone physique** : débogage USB activé. Le raccourci `Flutter.lnk` (ou `launch-phone.bat`) utilise Render. Pour l’API de **ton** PC (même Wi‑Fi) :
+
+```bat
+cd FutBolia\scripts
+launch-phone.bat -Local
+```
+
+Si le téléphone n’atteint pas l’API locale, autorise le port **3000** dans le pare-feu Windows.
+
+**PC (navigateur, hot reload)** — lien local [http://localhost:8080](http://localhost:8080) :
+
+```bat
+cd FutBolia\scripts
+launch-pc.bat
+```
+
+Ou en CMD :
+
+```bat
+cd FutBolia\apps\mobile
+flutter run -d edge --web-port 8080 --dart-define=API_BASE_URL=https://futbolia-api.onrender.com/api/v1
+```
+
+---
+
+## Travail en commun
+
+```bat
+git checkout main
+git pull
+git checkout -b feature/nom-de-ta-tache
+```
+
+Ensuite :
+
+```bat
+git add .
+git commit -m "message"
+git push -u origin feature/nom-de-ta-tache
+```
+
+Ouvre une **Pull Request vers `main`** sur GitHub : [Bobbybok/FutBolia](https://github.com/Bobbybok/FutBolia).
+
+Ne pousse pas directement sur `main`. Ne commit pas `.env`.
 
 ---
 
