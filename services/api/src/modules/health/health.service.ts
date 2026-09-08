@@ -24,18 +24,26 @@ export class HealthService {
 
     let connected = false;
     if (enabled) {
-      const client = new Client({
-        host: this.config.get<string>('DATABASE_HOST', 'localhost'),
-        port: this.config.get<number>('DATABASE_PORT', 5432),
-        user: this.config.get<string>('DATABASE_USER', 'futbolia'),
-        password: this.config.get<string>('DATABASE_PASSWORD'),
-        database: this.config.get<string>('DATABASE_NAME', 'futbolia_dev'),
-        ssl:
-          this.config.get<string>('DATABASE_SSL') === 'true'
-            ? { rejectUnauthorized: false }
-            : undefined,
-        connectionTimeoutMillis: 2000,
-      });
+      const databaseUrl = this.config.get<string>('DATABASE_URL');
+      const useSsl =
+        this.config.get<string>('DATABASE_SSL') === 'true' ||
+        Boolean(databaseUrl && /sslmode=require/i.test(databaseUrl));
+
+      const client = databaseUrl
+        ? new Client({
+            connectionString: databaseUrl,
+            ssl: useSsl ? { rejectUnauthorized: false } : undefined,
+            connectionTimeoutMillis: 5000,
+          })
+        : new Client({
+            host: this.config.get<string>('DATABASE_HOST', 'localhost'),
+            port: this.config.get<number>('DATABASE_PORT', 5432),
+            user: this.config.get<string>('DATABASE_USER', 'futbolia'),
+            password: this.config.get<string>('DATABASE_PASSWORD'),
+            database: this.config.get<string>('DATABASE_NAME', 'futbolia_dev'),
+            ssl: useSsl ? { rejectUnauthorized: false } : undefined,
+            connectionTimeoutMillis: 5000,
+          });
 
       try {
         await client.connect();
