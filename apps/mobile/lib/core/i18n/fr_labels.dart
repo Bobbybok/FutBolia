@@ -119,6 +119,9 @@ class FrLabels {
       'Email must be an email': 'L’e-mail n’est pas valide',
       'password must be longer than or equal to 8 characters':
           'Le mot de passe doit contenir au moins 8 caractères',
+      'le code doit contenir exactement 6 chiffres':
+          'Le code doit contenir exactement 6 chiffres',
+      'Jeton invalide ou expiré': 'Code invalide ou expiré',
     };
     return map[message] ?? message;
   }

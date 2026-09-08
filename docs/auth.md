@@ -6,7 +6,8 @@
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
-- `POST /api/v1/auth/verify-email`
+- `POST /api/v1/auth/verify-email` — code à **6 chiffres**
+- `POST /api/v1/auth/resend-verification` (JWT)
 - `POST /api/v1/auth/forgot-password`
 - `POST /api/v1/auth/reset-password`
 - `POST /api/v1/auth/change-password` (JWT)
@@ -22,7 +23,7 @@
 - Access JWT court + refresh token stocké hashé (SHA-256)
 - Permissions vérifiées côté API
 
-## E-mail (DEV)
+## E-mail
 
-Sans `SMTP_HOST`, les e-mails sont **loggés dans la console API**.
-En DEV, `register` renvoie aussi `devEmailVerificationToken` pour tester la vérif sans boîte mail.
+Voir [email-verification.md](./email-verification.md) — code 6 chiffres via **Resend** ou SMTP.  
+Sans fournisseur mail (DEV), le code est loggé et peut apparaître dans `devEmailVerificationToken`.

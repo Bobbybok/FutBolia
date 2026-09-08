@@ -21,6 +21,11 @@ class ApiClient {
 
   final http.Client _client;
   String? _accessToken;
+  bool _refreshing = false;
+
+  /// Called once on HTTP 401 for authenticated requests. Return true if a new
+  /// access token was stored and the request should be retried.
+  Future<bool> Function()? onUnauthorized;
 
   void setAccessToken(String? token) => _accessToken = token;
 
@@ -48,7 +53,11 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> verifyEmail(String token) {
-    return _post('/auth/verify-email', {'token': token});
+    return _post('/auth/verify-email', {'token': token.trim()});
+  }
+
+  Future<Map<String, dynamic>> resendVerification() {
+    return _post('/auth/resend-verification', {}, auth: true);
   }
 
   Future<Map<String, dynamic>> forgotPassword(String email) {
@@ -67,6 +76,11 @@ class ApiClient {
 
   Future<void> logout(String refreshToken) async {
     await _post('/auth/logout', {'refreshToken': refreshToken});
+  }
+
+  /// Exchange refresh token for a new access + refresh pair.
+  Future<Map<String, dynamic>> refresh(String refreshToken) {
+    return _post('/auth/refresh', {'refreshToken': refreshToken});
   }
 
   Future<Map<String, dynamic>> getMe() => _get('/users/me', auth: true);
@@ -377,27 +391,29 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> _get(String path, {bool auth = false}) async {
-    try {
-      final decoded = await _getDynamic(path, auth: auth);
-      if (decoded is Map<String, dynamic>) return decoded;
-      if (decoded is Map) return Map<String, dynamic>.from(decoded);
-      throw ApiException('Réponse invalide');
-    } on ApiException {
-      rethrow;
-    } on TimeoutException {
-      throw ApiException(
-        'Délai dépassé. Vérifie que l’API tourne (${AppConfig.apiBaseUrl}).',
-      );
-    } on SocketException {
-      throw ApiException(
-        'Impossible de joindre le serveur (${AppConfig.apiBaseUrl}). '
-        'Même Wi‑Fi ? API démarrée ?',
-      );
-    } on http.ClientException catch (e) {
-      throw ApiException(
-        'Connexion impossible: ${e.message}. URL: ${AppConfig.apiBaseUrl}',
-      );
-    }
+    return _withAuthRetry(auth, () async {
+      try {
+        final decoded = await _getDynamic(path, auth: auth);
+        if (decoded is Map<String, dynamic>) return decoded;
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+        throw ApiException('Réponse invalide');
+      } on ApiException {
+        rethrow;
+      } on TimeoutException {
+        throw ApiException(
+          'Délai dépassé. Vérifie que l’API tourne (${AppConfig.apiBaseUrl}).',
+        );
+      } on SocketException {
+        throw ApiException(
+          'Impossible de joindre le serveur (${AppConfig.apiBaseUrl}). '
+          'Même Wi‑Fi ? API démarrée ?',
+        );
+      } on http.ClientException catch (e) {
+        throw ApiException(
+          'Connexion impossible: ${e.message}. URL: ${AppConfig.apiBaseUrl}',
+        );
+      }
+    });
   }
 
   Future<dynamic> _getDynamic(String path, {bool auth = false}) async {
@@ -412,34 +428,36 @@ class ApiClient {
     Map<String, dynamic> body, {
     bool auth = false,
   }) async {
-    try {
-      final response = await _client
-          .post(
-            _uri(path),
-            headers: _headers(auth: auth),
-            body: jsonEncode(body),
-          )
-          .timeout(const Duration(seconds: 45));
-      final decoded = _decodeDynamic(response);
-      if (decoded is Map<String, dynamic>) return decoded;
-      if (decoded is Map) return Map<String, dynamic>.from(decoded);
-      return <String, dynamic>{};
-    } on ApiException {
-      rethrow;
-    } on TimeoutException {
-      throw ApiException(
-        'Délai dépassé (base Neon en réveil ?). Réessaie dans quelques secondes.',
-      );
-    } on SocketException {
-      throw ApiException(
-        'Impossible de joindre le serveur (${AppConfig.apiBaseUrl}). '
-        'Même Wi‑Fi ? API démarrée ?',
-      );
-    } on http.ClientException catch (e) {
-      throw ApiException(
-        'Connexion impossible: ${e.message}. URL: ${AppConfig.apiBaseUrl}',
-      );
-    }
+    return _withAuthRetry(auth, () async {
+      try {
+        final response = await _client
+            .post(
+              _uri(path),
+              headers: _headers(auth: auth),
+              body: jsonEncode(body),
+            )
+            .timeout(const Duration(seconds: 45));
+        final decoded = _decodeDynamic(response);
+        if (decoded is Map<String, dynamic>) return decoded;
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+        return <String, dynamic>{};
+      } on ApiException {
+        rethrow;
+      } on TimeoutException {
+        throw ApiException(
+          'Délai dépassé (base Neon en réveil ?). Réessaie dans quelques secondes.',
+        );
+      } on SocketException {
+        throw ApiException(
+          'Impossible de joindre le serveur (${AppConfig.apiBaseUrl}). '
+          'Même Wi‑Fi ? API démarrée ?',
+        );
+      } on http.ClientException catch (e) {
+        throw ApiException(
+          'Connexion impossible: ${e.message}. URL: ${AppConfig.apiBaseUrl}',
+        );
+      }
+    });
   }
 
   Future<Map<String, dynamic>> _patch(
@@ -447,28 +465,54 @@ class ApiClient {
     Map<String, dynamic> body, {
     bool auth = false,
   }) async {
+    return _withAuthRetry(auth, () async {
+      try {
+        final response = await _client
+            .patch(
+              _uri(path),
+              headers: _headers(auth: auth),
+              body: jsonEncode(body),
+            )
+            .timeout(const Duration(seconds: 30));
+        final decoded = _decodeDynamic(response);
+        if (decoded is Map<String, dynamic>) return decoded;
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+        return <String, dynamic>{};
+      } on ApiException {
+        rethrow;
+      } on TimeoutException {
+        throw ApiException('Délai dépassé. Réessaie.');
+      } on SocketException {
+        throw ApiException(
+          'Impossible de joindre le serveur (${AppConfig.apiBaseUrl}).',
+        );
+      } on http.ClientException catch (e) {
+        throw ApiException('Connexion impossible: ${e.message}');
+      }
+    });
+  }
+
+  Future<T> _withAuthRetry<T>(
+    bool auth,
+    Future<T> Function() run,
+  ) async {
     try {
-      final response = await _client
-          .patch(
-            _uri(path),
-            headers: _headers(auth: auth),
-            body: jsonEncode(body),
-          )
-          .timeout(const Duration(seconds: 30));
-      final decoded = _decodeDynamic(response);
-      if (decoded is Map<String, dynamic>) return decoded;
-      if (decoded is Map) return Map<String, dynamic>.from(decoded);
-      return <String, dynamic>{};
-    } on ApiException {
-      rethrow;
-    } on TimeoutException {
-      throw ApiException('Délai dépassé. Réessaie.');
-    } on SocketException {
-      throw ApiException(
-        'Impossible de joindre le serveur (${AppConfig.apiBaseUrl}).',
-      );
-    } on http.ClientException catch (e) {
-      throw ApiException('Connexion impossible: ${e.message}');
+      return await run();
+    } on ApiException catch (e) {
+      if (!auth ||
+          e.statusCode != 401 ||
+          onUnauthorized == null ||
+          _refreshing) {
+        rethrow;
+      }
+      _refreshing = true;
+      try {
+        final ok = await onUnauthorized!();
+        if (!ok) rethrow;
+      } finally {
+        _refreshing = false;
+      }
+      return await run();
     }
   }
 

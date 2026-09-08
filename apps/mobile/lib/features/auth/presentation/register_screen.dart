@@ -33,7 +33,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             password: _password.text,
             pseudo: _pseudo.text,
           );
-      if (mounted) Navigator.of(context).pop();
+      // Logged in → RootGate shows HomeShell, which opens verify e-mail.
     } catch (_) {
       if (!mounted) return;
       final msg =
@@ -56,7 +56,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         padding: const EdgeInsets.all(24),
         children: [
           Text(
-            'Choisis un pseudo unique. Tu pourras compléter ton profil ensuite.',
+            'Choisis un pseudo unique. Un code de vérification sera envoyé par e-mail.',
             style: textTheme.bodyLarge?.copyWith(color: FutBoliaColors.inkMuted),
           ),
           const SizedBox(height: 24),

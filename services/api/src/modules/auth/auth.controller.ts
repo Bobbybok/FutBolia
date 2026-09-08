@@ -11,6 +11,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+import { AuthTokenDto } from './dto/auth-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -61,6 +62,13 @@ export class AuthController {
     return this.authService.verifyEmail(dto.token);
   }
 
+  @Post('resend-verification')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(200)
+  resendVerification(@CurrentUser() user: AuthUser) {
+    return this.authService.resendEmailVerification(user.id);
+  }
+
   @Post('forgot-password')
   @HttpCode(200)
   forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -96,7 +104,7 @@ export class AuthController {
 
   @Post('confirm-email-change')
   @HttpCode(200)
-  confirmEmailChange(@Body() dto: VerifyEmailDto) {
+  confirmEmailChange(@Body() dto: AuthTokenDto) {
     return this.authService.confirmEmailChange(dto.token);
   }
 

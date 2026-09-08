@@ -49,3 +49,8 @@ services:
       # Set to https://futbolia-api.onrender.com after first deploy (or your custom name).
       - key: APP_URL
         sync: false
+      # Resend API key for real e-mail verification codes (docs/email-verification.md).
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: FutBolia <onboarding@resend.dev>

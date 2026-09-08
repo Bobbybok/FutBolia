@@ -17,6 +17,21 @@ class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final session = context.read<AuthSession>();
+      if (session.consumePromptEmailVerification() &&
+          !(session.user?.emailVerified ?? false)) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const VerifyEmailScreen()),
+        );
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final session = context.watch<AuthSession>();
     final user = session.user!;

@@ -10,7 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomInt } from 'crypto';
 import { DataSource, IsNull, MoreThan, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
 import { AuthTokenType, UserStatus } from '../../common/enums';
@@ -106,27 +106,20 @@ export class AuthService {
       }),
     );
 
-    const verifyToken = await this.issueAuthToken(
-      user.id,
-      AuthTokenType.EMAIL_VERIFY,
-      '24h',
-    );
-    await this.mail.send(
-      email,
-      'FutBolia — vérifie ton e-mail',
-      `Bienvenue sur FutBolia. Token de vérification : ${verifyToken}`,
-    );
+    const verifyCode = await this.issueEmailVerificationCode(user.id);
+    const mailResult = await this.mail.sendVerificationCode(email, verifyCode);
 
     const tokens = await this.issueSession(user);
     const response: Record<string, unknown> = {
       user: await this.toPublicUser(user.id),
       ...tokens,
       emailVerificationRequired: true,
+      emailSent: mailResult.delivered,
     };
 
-    // DEV only: expose token so mobile/QA can verify without SMTP.
-    if (this.config.get<string>('NODE_ENV') !== 'production') {
-      response.devEmailVerificationToken = verifyToken;
+    // Only expose the code when no real mail provider is configured (local/e2e).
+    if (!mailResult.delivered && this.config.get<string>('NODE_ENV') !== 'production') {
+      response.devEmailVerificationToken = verifyCode;
     }
 
     return response;
@@ -192,14 +185,57 @@ export class AuthService {
   }
 
   async verifyEmail(token: string) {
+    const code = token.trim().replace(/\s+/g, '');
     const authToken = await this.consumeAuthToken(
-      token,
+      code,
       AuthTokenType.EMAIL_VERIFY,
     );
     const user = await this.users.findOneByOrFail({ id: authToken.userId });
     user.emailVerifiedAt = new Date();
     await this.users.save(user);
     return { success: true, user: await this.toPublicUser(user.id) };
+  }
+
+  async resendEmailVerification(userId: string) {
+    const user = await this.users.findOneByOrFail({ id: userId });
+    if (user.emailVerifiedAt) {
+      return {
+        success: true,
+        alreadyVerified: true,
+        message: 'E-mail déjà vérifié',
+      };
+    }
+
+    const latest = await this.authTokens.findOne({
+      where: {
+        userId,
+        type: AuthTokenType.EMAIL_VERIFY,
+        usedAt: IsNull(),
+      },
+      order: { createdAt: 'DESC' },
+    });
+    if (latest && Date.now() - latest.createdAt.getTime() < 60_000) {
+      throw new BadRequestException(
+        'Attends une minute avant de renvoyer un code',
+      );
+    }
+
+    const code = await this.issueEmailVerificationCode(user.id);
+    const mailResult = await this.mail.sendVerificationCode(user.email, code);
+
+    const response: Record<string, unknown> = {
+      success: true,
+      emailSent: mailResult.delivered,
+      message: mailResult.delivered
+        ? 'Un nouveau code a été envoyé par e-mail'
+        : 'Code généré (e-mail non configuré — voir logs serveur)',
+    };
+
+    if (!mailResult.delivered && this.config.get<string>('NODE_ENV') !== 'production') {
+      response.devEmailVerificationToken = code;
+    }
+
+    return response;
   }
 
   async forgotPassword(emailRaw: string) {
@@ -375,6 +411,33 @@ export class AuthService {
     };
   }
 
+  private async issueEmailVerificationCode(userId: string): Promise<string> {
+    // Invalidate previous unused codes.
+    await this.authTokens
+      .createQueryBuilder()
+      .update(AuthToken)
+      .set({ usedAt: new Date() })
+      .where('user_id = :userId', { userId })
+      .andWhere('type = :type', { type: AuthTokenType.EMAIL_VERIFY })
+      .andWhere('used_at IS NULL')
+      .execute();
+
+    const code = String(randomInt(100000, 1000000));
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await this.authTokens.save(
+      this.authTokens.create({
+        userId,
+        type: AuthTokenType.EMAIL_VERIFY,
+        tokenHash: this.hashToken(code),
+        payload: null,
+        expiresAt,
+      }),
+    );
+
+    return code;
+  }
+
   private async issueAuthToken(
     userId: string,
     type: AuthTokenType,
@@ -409,7 +472,11 @@ export class AuthService {
       },
     });
     if (!token) {
-      throw new BadRequestException('Jeton invalide ou expiré');
+      throw new BadRequestException(
+        type === AuthTokenType.EMAIL_VERIFY
+          ? 'Code invalide ou expiré'
+          : 'Jeton invalide ou expiré',
+      );
     }
     token.usedAt = new Date();
     await this.authTokens.save(token);
