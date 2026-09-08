@@ -11,6 +11,7 @@ import { randomBytes } from 'crypto';
 import { DataSource, ILike, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
 import {
+  toPlatformRole,
   TournamentMemberRole,
   TournamentMode,
   TournamentStatus,
@@ -297,6 +298,7 @@ export class TournamentsService {
         id: m.user.id,
         pseudo: m.user.profile?.pseudo ?? null,
         avatarUrl: m.user.profile?.avatarUrl ?? null,
+        role: toPlatformRole(m.user.globalRole),
       },
     }));
   }

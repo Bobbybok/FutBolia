@@ -11,6 +11,7 @@ import { Profile } from './entities/profile.entity';
 import { User } from './entities/user.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { AuthService } from '../auth/auth.service';
+import { toPlatformRole } from '../../common/enums';
 
 @Injectable()
 export class UsersService {
@@ -76,6 +77,7 @@ export class UsersService {
 
     return {
       id: user.id,
+      role: toPlatformRole(user.globalRole),
       profile: {
         pseudo: user.profile.pseudo,
         firstName: user.profile.firstName,

@@ -6,6 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthUser } from '../../../common/decorators/current-user.decorator';
+import { authUserFromAccessPayload } from '../../../common/auth-user-from-payload';
 
 @Injectable()
 export class OptionalJwtAuthGuard implements CanActivate {
@@ -30,15 +31,13 @@ export class OptionalJwtAuthGuard implements CanActivate {
       const payload = this.jwt.verify<{
         sub: string;
         email: string;
-        globalRole: string;
+        globalRole?: string;
+        role?: string;
+        permissions?: string[];
       }>(token, {
         secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
       });
-      request.user = {
-        id: payload.sub,
-        email: payload.email,
-        globalRole: payload.globalRole,
-      };
+      request.user = authUserFromAccessPayload(payload);
     } catch {
       // Ignore invalid token for public endpoints.
     }

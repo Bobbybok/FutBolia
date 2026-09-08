@@ -12,6 +12,7 @@ import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
 import {
   TeamMemberSlot,
   TeamStatus,
+  toPlatformRole,
   TournamentMemberRole,
   TournamentMode,
   TournamentStatus,
@@ -574,6 +575,7 @@ export class TeamsService {
       joinedAt: member.joinedAt,
       pseudo: member.user?.profile?.pseudo ?? null,
       avatarUrl: member.user?.profile?.avatarUrl ?? null,
+      role: toPlatformRole(member.user?.globalRole),
     };
   }
 }

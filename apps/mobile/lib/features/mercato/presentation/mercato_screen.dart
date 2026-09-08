@@ -5,6 +5,7 @@ import '../../../core/network/api_client.dart';
 import '../../../design_system/components/fb_badge.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
+import '../../auth/domain/staff_label.dart';
 
 class MercatoScreen extends StatefulWidget {
   const MercatoScreen({
@@ -202,7 +203,7 @@ class _MercatoScreenState extends State<MercatoScreen> {
                           return ListTile(
                             contentPadding: EdgeInsets.zero,
                             title: Text(
-                              p['pseudo']?.toString() ?? 'Joueur',
+                              staffPseudoOf(p),
                             ),
                             subtitle: Text(
                               FrLabels.mercatoStatus(status),

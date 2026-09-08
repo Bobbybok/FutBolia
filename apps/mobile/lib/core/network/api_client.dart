@@ -85,6 +85,177 @@ class ApiClient {
 
   Future<Map<String, dynamic>> getMe() => _get('/users/me', auth: true);
 
+  Future<List<Map<String, dynamic>>> adminListAdmins() async {
+    return _getList('/admin/admins');
+  }
+
+  Future<List<Map<String, dynamic>>> adminSearchUsers(String query) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/admin/users').replace(
+      queryParameters: query.trim().isEmpty ? null : {'q': query.trim()},
+    );
+    final response = await _client
+        .get(uri, headers: _headers(auth: true))
+        .timeout(const Duration(seconds: 15));
+    return _asMapList(_decodeDynamic(response));
+  }
+
+  Future<Map<String, dynamic>> adminGrant({
+    required String userId,
+    required List<String> permissions,
+  }) {
+    return _post('/admin/admins/$userId/grant', {'permissions': permissions}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminUpdatePermissions({
+    required String userId,
+    required List<String> permissions,
+  }) {
+    return _patch('/admin/admins/$userId/permissions', {
+      'permissions': permissions,
+    }, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminRevoke(String userId) {
+    return _delete('/admin/admins/$userId/revoke');
+  }
+
+  Future<List<Map<String, dynamic>>> adminListModerators() {
+    return _getList('/admin/moderators');
+  }
+
+  Future<Map<String, dynamic>> adminGrantModerator({
+    required String userId,
+    required List<String> permissions,
+  }) {
+    return _post('/admin/moderators/$userId/grant', {
+      'permissions': permissions,
+    }, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminUpdateModeratorPermissions({
+    required String userId,
+    required List<String> permissions,
+  }) {
+    return _patch('/admin/moderators/$userId/permissions', {
+      'permissions': permissions,
+    }, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminRevokeModerator(String userId) {
+    return _delete('/admin/moderators/$userId/revoke');
+  }
+
+  Future<Map<String, dynamic>> adminGetUser(String id) {
+    return _get('/admin/users/$id', auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminBanUser(String id, {String? reason}) {
+    return _post('/admin/users/$id/ban', {
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+    }, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminUnbanUser(String id) {
+    return _post('/admin/users/$id/unban', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminForceVerify(String id) {
+    return _post('/admin/users/$id/verify-email', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminForceReset(String id) {
+    return _post('/admin/users/$id/reset-password', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminRevokeSessions(String id) {
+    return _post('/admin/users/$id/revoke-sessions', {}, auth: true);
+  }
+
+  Future<List<Map<String, dynamic>>> adminListTournaments() {
+    return _getList('/admin/tournaments');
+  }
+
+  Future<Map<String, dynamic>> adminPatchTournament(
+    String id,
+    Map<String, dynamic> body,
+  ) {
+    return _patch('/admin/tournaments/$id', body, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminDeleteTournament(String id) {
+    return _delete('/admin/tournaments/$id');
+  }
+
+  Future<Map<String, dynamic>> adminTransferOwner({
+    required String tournamentId,
+    required String userId,
+  }) {
+    return _post('/admin/tournaments/$tournamentId/transfer', {
+      'userId': userId,
+    }, auth: true);
+  }
+
+  Future<List<Map<String, dynamic>>> adminListTournamentTeams(String id) {
+    return _getList('/admin/tournaments/$id/teams');
+  }
+
+  Future<List<Map<String, dynamic>>> adminListTournamentMatches(String id) {
+    return _getList('/admin/tournaments/$id/matches');
+  }
+
+  Future<Map<String, dynamic>> adminForceTeamStatus({
+    required String teamId,
+    required String status,
+  }) {
+    return _post('/admin/teams/$teamId/status', {'status': status}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminCancelMatch(String matchId) {
+    return _post('/admin/matches/$matchId/cancel', {}, auth: true);
+  }
+
+  Future<List<Map<String, dynamic>>> adminListReports() {
+    return _getList('/admin/reports');
+  }
+
+  Future<Map<String, dynamic>> adminResolveReport({
+    required String id,
+    required String status,
+  }) {
+    return _patch('/admin/reports/$id', {'status': status}, auth: true);
+  }
+
+  Future<List<Map<String, dynamic>>> adminListDeletedMessages() {
+    return _getList('/admin/messages');
+  }
+
+  Future<Map<String, dynamic>> adminDeleteMessage(String id) {
+    return _delete('/admin/messages/$id');
+  }
+
+  Future<Map<String, dynamic>> adminStats() {
+    return _get('/admin/stats', auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminSecurity() {
+    return _get('/admin/security', auth: true);
+  }
+
+  Future<List<Map<String, dynamic>>> _getList(String path) async {
+    final decoded = await _getDynamic(path, auth: true);
+    return _asMapList(decoded);
+  }
+
+  List<Map<String, dynamic>> _asMapList(dynamic decoded) {
+    if (decoded is! List) {
+      throw ApiException('Réponse liste invalide');
+    }
+    return decoded
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
   Future<Map<String, dynamic>> updateMe(Map<String, dynamic> body) {
     return _patch('/users/me', body, auth: true);
   }
@@ -456,6 +627,30 @@ class ApiClient {
         throw ApiException(
           'Connexion impossible: ${e.message}. URL: ${AppConfig.apiBaseUrl}',
         );
+      }
+    });
+  }
+
+  Future<Map<String, dynamic>> _delete(String path) async {
+    return _withAuthRetry(true, () async {
+      try {
+        final response = await _client
+            .delete(_uri(path), headers: _headers(auth: true))
+            .timeout(const Duration(seconds: 15));
+        final decoded = _decodeDynamic(response);
+        if (decoded is Map<String, dynamic>) return decoded;
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+        return <String, dynamic>{'success': true};
+      } on ApiException {
+        rethrow;
+      } on TimeoutException {
+        throw ApiException('Délai dépassé. Réessaie.');
+      } on SocketException {
+        throw ApiException(
+          'Impossible de joindre le serveur (${AppConfig.apiBaseUrl}).',
+        );
+      } on http.ClientException catch (e) {
+        throw ApiException('Connexion impossible: ${e.message}');
       }
     });
   }

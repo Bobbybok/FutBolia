@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/network/api_client.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
+import '../../auth/domain/staff_label.dart';
 
 class TournamentChatScreen extends StatefulWidget {
   const TournamentChatScreen({
@@ -204,8 +205,10 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
                                         children: [
                                           if (!mine)
                                             Text(
-                                              m['authorPseudo']?.toString() ??
-                                                  'Joueur',
+                                              staffDisplayPseudo(
+                                                m['authorPseudo']?.toString(),
+                                                m['authorRole']?.toString(),
+                                              ),
                                               style: Theme.of(context)
                                                   .textTheme
                                                   .labelMedium

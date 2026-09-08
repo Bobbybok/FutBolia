@@ -68,6 +68,8 @@ copy .env.example services\api\.env
 
 **Ne commit jamais** `services/api/.env`.
 
+Admins principaux : voir [docs/admin.md](docs/admin.md).
+
 ---
 
 ## Base de données (DEV)

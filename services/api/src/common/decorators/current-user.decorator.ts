@@ -3,11 +3,14 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
+import { PlatformRole } from '../enums';
 
 export class AuthUser {
   id!: string;
   email!: string;
   globalRole!: string;
+  role!: PlatformRole;
+  permissions!: string[];
 }
 
 export const CurrentUser = createParamDecorator(

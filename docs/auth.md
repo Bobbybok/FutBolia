@@ -21,7 +21,10 @@
 
 - Mots de passe hashés avec **argon2**
 - Access JWT court + refresh token stocké hashé (SHA-256)
-- Permissions vérifiées côté API
+- Permissions vérifiées côté API (`@RequirePermission` sur `/admin/*`)
+- JWT : `role` + `permissions` (reconnecte-toi après un changement de droits)
+
+Voir [admin.md](./admin.md) pour les comptes admin principaux.
 
 ## E-mail
 

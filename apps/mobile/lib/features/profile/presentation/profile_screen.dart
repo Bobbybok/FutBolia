@@ -84,7 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          Text(user.pseudo, style: Theme.of(context).textTheme.headlineMedium),
+          Text(user.displayPseudo, style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 6),
           Text(user.email, style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 12),

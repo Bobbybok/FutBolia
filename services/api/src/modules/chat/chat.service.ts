@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { DataSource, IsNull, LessThan, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
-import { TournamentMemberRole } from '../../common/enums';
+import { toPlatformRole, TournamentMemberRole } from '../../common/enums';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentMember } from '../tournaments/entities/tournament-member.entity';
 import { TournamentChatMessage } from './entities/tournament-chat-message.entity';
@@ -162,6 +162,7 @@ export class ChatService {
       tournamentId: message.tournamentId,
       authorId: message.authorId,
       authorPseudo: message.author?.profile?.pseudo ?? null,
+      authorRole: toPlatformRole(message.author?.globalRole),
       body: message.body,
       createdAt: message.createdAt,
       isMine: message.authorId === viewerId,

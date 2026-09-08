@@ -7,6 +7,7 @@ import '../../../design_system/components/fb_button.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../../core/i18n/fr_labels.dart';
 import '../../auth/application/auth_session.dart';
+import '../../auth/domain/staff_label.dart';
 import '../../teams/presentation/teams_section.dart';
 import '../../mercato/presentation/mercato_screen.dart';
 import '../../matches/presentation/matches_screen.dart';
@@ -316,7 +317,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
             ..._members.map(
               (m) => ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(m['user']?['pseudo']?.toString() ?? 'Joueur'),
+                title: Text(staffPseudoOf(m['user'])),
                 subtitle: Text(FrLabels.memberRole(m['role']?.toString())),
               ),
             ),

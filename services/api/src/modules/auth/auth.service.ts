@@ -13,7 +13,8 @@ import * as argon2 from 'argon2';
 import { createHash, randomBytes, randomInt } from 'crypto';
 import { DataSource, IsNull, MoreThan, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
-import { AuthTokenType, UserStatus } from '../../common/enums';
+import { AuthTokenType, PlatformRole, toPlatformRole, UserStatus } from '../../common/enums';
+import { AdminPermission } from '../admin/entities/admin-permission.entity';
 import { User } from '../users/entities/user.entity';
 import { Profile } from '../users/entities/profile.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -28,6 +29,8 @@ export type PublicUser = {
   emailVerified: boolean;
   status: UserStatus;
   globalRole: string;
+  role: PlatformRole;
+  permissions: string[];
   profile: {
     pseudo: string;
     firstName: string | null;
@@ -63,6 +66,10 @@ export class AuthService {
 
   private get authTokens(): Repository<AuthToken> {
     return this.db.getRepository(AuthToken);
+  }
+
+  private get adminPermissions(): Repository<AdminPermission> {
+    return this.db.getRepository(AdminPermission);
   }
 
   private get db(): DataSource {
@@ -354,12 +361,17 @@ export class AuthService {
       throw new BadRequestException('Profil utilisateur manquant');
     }
 
+    const permissions = await this.listPermissions(user.id);
+    const role = toPlatformRole(user.globalRole);
+
     return {
       id: user.id,
       email: user.email,
       emailVerified: Boolean(user.emailVerifiedAt),
       status: user.status,
       globalRole: user.globalRole,
+      role,
+      permissions,
       profile: {
         pseudo: user.profile.pseudo,
         firstName: user.profile.firstName,
@@ -374,11 +386,15 @@ export class AuthService {
   }
 
   private async issueSession(user: User) {
+    const permissions = await this.listPermissions(user.id);
+    const role = toPlatformRole(user.globalRole);
     const accessToken = await this.jwt.signAsync(
       {
         sub: user.id,
         email: user.email,
         globalRole: user.globalRole,
+        role,
+        permissions,
       },
       {
         secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
@@ -481,6 +497,15 @@ export class AuthService {
     token.usedAt = new Date();
     await this.authTokens.save(token);
     return token;
+  }
+
+  async invalidateSessions(userId: string) {
+    await this.revokeAllRefreshTokens(userId);
+  }
+
+  async listPermissions(userId: string): Promise<string[]> {
+    const rows = await this.adminPermissions.find({ where: { userId } });
+    return rows.map((row) => row.permission);
   }
 
   private async revokeAllRefreshTokens(userId: string) {

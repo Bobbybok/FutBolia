@@ -11,6 +11,7 @@ import { MercatoModule } from './modules/mercato/mercato.module';
 import { MatchesModule } from './modules/matches/matches.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { ForumModule } from './modules/forum/forum.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { DatabaseModule } from './database/database.module';
 import { validateEnv } from './config/env.validation';
 
@@ -40,6 +41,7 @@ import { validateEnv } from './config/env.validation';
     MatchesModule,
     ChatModule,
     ForumModule,
+    AdminModule,
   ],
   providers: [
     {

@@ -6,6 +6,7 @@ import '../../../design_system/components/fb_button.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../../core/i18n/fr_labels.dart';
 import '../../auth/application/auth_session.dart';
+import '../../auth/domain/staff_label.dart';
 
 class TeamsSection extends StatefulWidget {
   const TeamsSection({
@@ -50,7 +51,7 @@ class _TeamsSectionState extends State<TeamsSection> {
     if (userId == null) return null;
     for (final m in widget.members) {
       if (m['user']?['id']?.toString() == userId) {
-        return m['user']?['pseudo']?.toString();
+        return staffPseudoOf(m['user']);
       }
     }
     return null;
@@ -345,7 +346,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
               const ListTile(title: Text('Ajouter un joueur')),
               ...candidates.map(
                 (m) => ListTile(
-                  title: Text(m['user']?['pseudo']?.toString() ?? 'Joueur'),
+                  title: Text(staffPseudoOf(m['user'])),
                   subtitle: Text(FrLabels.memberRole(m['role']?.toString())),
                   onTap: () => Navigator.pop(context, m),
                 ),
@@ -412,7 +413,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
     if (selectorId == null) return null;
     for (final m in widget.tournamentMembers) {
       if (m['user']?['id']?.toString() == selectorId) {
-        return m['user']?['pseudo']?.toString();
+        return staffPseudoOf(m['user']);
       }
     }
     return null;
@@ -450,7 +451,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Sélectionneur : ${selected['user']?['pseudo'] ?? 'assigné'}',
+            'Sélectionneur : ${staffPseudoOf(selected['user'])}',
           ),
         ),
       );
@@ -566,7 +567,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      title: Text(map['pseudo']?.toString() ?? 'Joueur'),
+      title: Text(staffPseudoOf(map)),
       subtitle: Text(FrLabels.teamSlot(map['slot']?.toString())),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -614,7 +615,7 @@ Future<Map<String, dynamic>?> _pickTournamentMember({
               ),
             ...members.map(
               (m) => ListTile(
-                title: Text(m['user']?['pseudo']?.toString() ?? 'Joueur'),
+                title: Text(staffPseudoOf(m['user'])),
                 subtitle: Text(FrLabels.memberRole(m['role']?.toString())),
                 onTap: () => Navigator.pop(context, m),
               ),

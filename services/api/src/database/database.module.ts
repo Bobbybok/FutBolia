@@ -18,6 +18,9 @@ import { Match } from '../modules/matches/entities/match.entity';
 import { TournamentChatMessage } from '../modules/chat/entities/tournament-chat-message.entity';
 import { ForumPost } from '../modules/forum/entities/forum-post.entity';
 import { ForumReply } from '../modules/forum/entities/forum-reply.entity';
+import { AdminPermission } from '../modules/admin/entities/admin-permission.entity';
+import { AuditLog } from '../modules/admin/entities/audit-log.entity';
+import { Report } from '../modules/admin/entities/report.entity';
 
 export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
 
@@ -60,6 +63,9 @@ export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
             TournamentChatMessage,
             ForumPost,
             ForumReply,
+            AdminPermission,
+            AuditLog,
+            Report,
           ],
           synchronize: (() => {
             const explicit = config.get<string>('DATABASE_SYNC');

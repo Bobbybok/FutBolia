@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../design_system/tokens/colors.dart';
+import '../../admin/admin_home_screen.dart';
 import '../../auth/application/auth_session.dart';
 import '../../auth/presentation/verify_email_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
@@ -40,27 +41,42 @@ class _HomeShellState extends State<HomeShell> {
       _HomeTab(onOpenTournaments: () => setState(() => _index = 1)),
       const TournamentsScreen(),
       const ProfileScreen(),
+      if (user.isStaff) const AdminHomeScreen(),
     ];
 
+    final destinations = [
+      const NavigationDestination(
+        icon: Icon(Icons.home_outlined),
+        label: 'Accueil',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.emoji_events_outlined),
+        label: 'Tournois',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.person_outline),
+        label: 'Profil',
+      ),
+      if (user.isStaff)
+        NavigationDestination(
+          icon: Icon(
+            user.isAdmin
+                ? Icons.admin_panel_settings_outlined
+                : Icons.shield_outlined,
+          ),
+          label: user.isAdmin ? 'Admin' : 'Modo',
+        ),
+    ];
+
+    final maxIndex = pages.length - 1;
+    final selected = _index > maxIndex ? 0 : _index;
+
     return Scaffold(
-      body: IndexedStack(index: _index, children: pages),
+      body: IndexedStack(index: selected, children: pages),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
+        selectedIndex: selected,
         onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            label: 'Accueil',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.emoji_events_outlined),
-            label: 'Tournois',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            label: 'Profil',
-          ),
-        ],
+        destinations: destinations,
       ),
       floatingActionButton: !user.emailVerified && _index == 0
           ? FloatingActionButton.extended(
@@ -93,7 +109,7 @@ class _HomeTab extends StatelessWidget {
           Text('FUTBOLIA', style: Theme.of(context).textTheme.displayMedium),
           const SizedBox(height: 8),
           Text(
-            'Salut ${user.pseudo}',
+            'Salut ${user.displayPseudo}',
             style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 8),
