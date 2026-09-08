@@ -21,6 +21,9 @@ import { ForumReply } from '../modules/forum/entities/forum-reply.entity';
 import { AdminPermission } from '../modules/admin/entities/admin-permission.entity';
 import { AuditLog } from '../modules/admin/entities/audit-log.entity';
 import { Report } from '../modules/admin/entities/report.entity';
+import { FriendRequest } from '../modules/friends/entities/friend-request.entity';
+import { Conversation } from '../modules/private-chat/entities/conversation.entity';
+import { DirectMessage } from '../modules/private-chat/entities/direct-message.entity';
 
 export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
 
@@ -66,6 +69,9 @@ export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
             AdminPermission,
             AuditLog,
             Report,
+            FriendRequest,
+            Conversation,
+            DirectMessage,
           ],
           synchronize: (() => {
             const explicit = config.get<string>('DATABASE_SYNC');

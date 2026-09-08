@@ -146,3 +146,9 @@ export enum MatchStatus {
   FINISHED = 'finished',
   CANCELLED = 'cancelled',
 }
+
+export enum FriendRequestStatus {
+  PENDING = 'pending',
+  ACCEPTED = 'accepted',
+  DECLINED = 'declined',
+}

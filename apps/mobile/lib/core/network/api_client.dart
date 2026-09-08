@@ -590,6 +590,88 @@ class ApiClient {
     return <String, dynamic>{'success': true};
   }
 
+  Future<List<Map<String, dynamic>>> listFriends() {
+    return _getList('/friends');
+  }
+
+  Future<Map<String, dynamic>> listFriendRequests() {
+    return _get('/friends/requests', auth: true);
+  }
+
+  Future<List<Map<String, dynamic>>> searchPlayers(String query) {
+    return _getList(
+      '/friends/search?q=${Uri.encodeQueryComponent(query.trim())}',
+    );
+  }
+
+  Future<Map<String, dynamic>> sendFriendRequest({
+    String? userId,
+    String? pseudo,
+  }) {
+    return _post('/friends/requests', {
+      if (userId != null) 'userId': userId,
+      if (pseudo != null && pseudo.isNotEmpty) 'pseudo': pseudo,
+    }, auth: true);
+  }
+
+  Future<Map<String, dynamic>> acceptFriendRequest(String id) {
+    return _post('/friends/requests/$id/accept', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> declineFriendRequest(String id) {
+    return _post('/friends/requests/$id/decline', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> unfriend(String userId) {
+    return _delete('/friends/$userId');
+  }
+
+  Future<List<Map<String, dynamic>>> listConversations() {
+    return _getList('/conversations');
+  }
+
+  Future<int> conversationsUnreadCount() async {
+    final data = await _get('/conversations/unread-count', auth: true);
+    return (data['count'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<Map<String, dynamic>> openConversation(String friendId) {
+    return _post('/conversations', {'friendId': friendId}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> listDirectMessages(
+    String conversationId, {
+    String? before,
+    int limit = 50,
+  }) {
+    final path = before == null
+        ? '/conversations/$conversationId/messages?limit=$limit'
+        : '/conversations/$conversationId/messages?limit=$limit&before=$before';
+    return _get(path, auth: true);
+  }
+
+  Future<Map<String, dynamic>> postDirectMessage(
+    String conversationId,
+    String body,
+  ) {
+    return _post(
+      '/conversations/$conversationId/messages',
+      {'body': body},
+      auth: true,
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteDirectMessage(
+    String conversationId,
+    String messageId,
+  ) {
+    return _delete('/conversations/$conversationId/messages/$messageId');
+  }
+
+  Future<Map<String, dynamic>> markConversationRead(String conversationId) {
+    return _patch('/conversations/$conversationId/read', {}, auth: true);
+  }
+
   Future<Map<String, dynamic>> _get(String path, {bool auth = false}) async {
     return _withAuthRetry(auth, () async {
       try {

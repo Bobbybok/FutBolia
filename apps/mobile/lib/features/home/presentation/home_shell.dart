@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../admin/admin_home_screen.dart';
 import '../../auth/application/auth_session.dart';
 import '../../auth/presentation/verify_email_screen.dart';
+import '../../friends/friends_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../tournaments/presentation/tournaments_screen.dart';
 
@@ -16,6 +18,8 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+  int _unread = 0;
+  Timer? _unreadPoll;
 
   @override
   void initState() {
@@ -29,7 +33,29 @@ class _HomeShellState extends State<HomeShell> {
           MaterialPageRoute(builder: (_) => const VerifyEmailScreen()),
         );
       }
+      _refreshUnread();
     });
+    _unreadPoll = Timer.periodic(
+      const Duration(seconds: 8),
+      (_) => _refreshUnread(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _unreadPoll?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshUnread() async {
+    try {
+      final count =
+          await context.read<AuthSession>().api.conversationsUnreadCount();
+      if (!mounted) return;
+      setState(() => _unread = count);
+    } catch (_) {
+      // Badge optionnel : une panne réseau ne bloque pas la nav.
+    }
   }
 
   @override
@@ -40,9 +66,17 @@ class _HomeShellState extends State<HomeShell> {
     final pages = [
       _HomeTab(onOpenTournaments: () => setState(() => _index = 1)),
       const TournamentsScreen(),
+      const FriendsScreen(),
       const ProfileScreen(),
       if (user.isStaff) const AdminHomeScreen(),
     ];
+
+    final unreadLabel = _unread > 99 ? '99+' : '$_unread';
+    final friendsIcon = Badge(
+      isLabelVisible: _unread > 0,
+      label: Text(unreadLabel),
+      child: const Icon(Icons.people_outline),
+    );
 
     final destinations = [
       const NavigationDestination(
@@ -52,6 +86,10 @@ class _HomeShellState extends State<HomeShell> {
       const NavigationDestination(
         icon: Icon(Icons.emoji_events_outlined),
         label: 'Tournois',
+      ),
+      NavigationDestination(
+        icon: friendsIcon,
+        label: 'Amis',
       ),
       const NavigationDestination(
         icon: Icon(Icons.person_outline),
@@ -75,7 +113,10 @@ class _HomeShellState extends State<HomeShell> {
       body: IndexedStack(index: selected, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selected,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: (i) {
+          setState(() => _index = i);
+          if (i == 2) _refreshUnread();
+        },
         destinations: destinations,
       ),
       floatingActionButton: !user.emailVerified && _index == 0

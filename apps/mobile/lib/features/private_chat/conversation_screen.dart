@@ -1,39 +1,44 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/network/api_client.dart';
-import '../../../design_system/tokens/colors.dart';
-import '../../auth/application/auth_session.dart';
-import '../widgets/chat_thread.dart';
+import '../../core/network/api_client.dart';
+import '../../design_system/tokens/colors.dart';
+import '../auth/application/auth_session.dart';
+import '../auth/domain/staff_label.dart';
+import '../chat/widgets/chat_thread.dart';
 
-class TournamentChatScreen extends StatefulWidget {
-  const TournamentChatScreen({
+class ConversationScreen extends StatefulWidget {
+  const ConversationScreen({
     super.key,
-    required this.tournamentId,
-    required this.tournamentName,
-    this.isOrganizer = false,
+    required this.conversationId,
+    required this.friendName,
+    this.canSend = true,
   });
 
-  final String tournamentId;
-  final String tournamentName;
-  final bool isOrganizer;
+  final String conversationId;
+  final String friendName;
+  final bool canSend;
 
   @override
-  State<TournamentChatScreen> createState() => _TournamentChatScreenState();
+  State<ConversationScreen> createState() => _ConversationScreenState();
 }
 
-class _TournamentChatScreenState extends State<TournamentChatScreen> {
+class _ConversationScreenState extends State<ConversationScreen> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
   List<Map<String, dynamic>> _messages = [];
   bool _loading = true;
   bool _sending = false;
+  bool _canSend = true;
   String? _error;
   Timer? _poll;
+
+  ApiClient get _api => context.read<AuthSession>().api;
 
   @override
   void initState() {
     super.initState();
+    _canSend = widget.canSend;
     _load(initial: true);
     _poll = Timer.periodic(const Duration(seconds: 4), (_) => _load());
   }
@@ -54,17 +59,23 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
       });
     }
     try {
-      final messages = await context
-          .read<AuthSession>()
-          .api
-          .listChatMessages(widget.tournamentId);
+      final data = await _api.listDirectMessages(widget.conversationId);
+      await _api.markConversationRead(widget.conversationId);
       if (!mounted) return;
+      final raw = data['messages'];
+      final messages = raw is List
+          ? raw
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList()
+          : <Map<String, dynamic>>[];
       final changed = messages.length != _messages.length ||
           (messages.isNotEmpty &&
               _messages.isNotEmpty &&
               messages.last['id'] != _messages.last['id']);
       setState(() {
         _messages = messages;
+        _canSend = data['canSend'] == true;
         _loading = false;
         _error = null;
       });
@@ -88,13 +99,10 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
 
   Future<void> _send() async {
     final text = _input.text.trim();
-    if (text.isEmpty || _sending) return;
+    if (text.isEmpty || _sending || !_canSend) return;
     setState(() => _sending = true);
     try {
-      await context.read<AuthSession>().api.postChatMessage(
-            widget.tournamentId,
-            text,
-          );
+      await _api.postDirectMessage(widget.conversationId, text);
       _input.clear();
       await _load();
     } on ApiException catch (e) {
@@ -125,10 +133,10 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
     );
     if (ok != true || !mounted) return;
     try {
-      await context
-          .read<AuthSession>()
-          .api
-          .deleteChatMessage(message['id'].toString());
+      await _api.deleteDirectMessage(
+        widget.conversationId,
+        message['id'].toString(),
+      );
       await _load();
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -139,9 +147,7 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Chat · ${widget.tournamentName}'),
-      ),
+      appBar: AppBar(title: Text(widget.friendName)),
       body: ChatThread(
         messages: _messages,
         loading: _loading,
@@ -150,9 +156,16 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
         input: _input,
         onSend: _send,
         sending: _sending,
-        canDelete: (m) => m['isMine'] == true || widget.isOrganizer,
+        canSend: _canSend,
+        cannotSendHint:
+            'Vous n’êtes plus amis. Tu peux relire l’historique, plus envoyer.',
+        canDelete: (m) => m['isMine'] == true,
         onDelete: _delete,
       ),
     );
   }
+}
+
+String conversationFriendName(Map<String, dynamic> conversation) {
+  return staffPseudoOf(conversation['friend']);
 }
