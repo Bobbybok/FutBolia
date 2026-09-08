@@ -115,7 +115,7 @@ flutter pub get
 Émulateur / téléphone : l’URL API par défaut pointe vers Render  
 `https://futbolia-api.onrender.com/api/v1` (voir [docs/render-api.md](docs/render-api.md)).
 
-**Téléphone physique** : débogage USB activé. Le raccourci `Flutter.lnk` (ou `launch-phone.bat`) utilise Render. Pour l’API de **ton** PC (même Wi‑Fi) :
+**Téléphone physique** : 1re fois en USB (débogage USB). Le raccourci `Flutter.lnk` bascule ensuite en **Wi‑Fi** (même box) : tu peux débrancher. Forcer le câble : `launch-phone.bat -Usb`. Déjà en ADB réseau : `launch-phone.bat -PhoneIp 192.168.x.x`. L’API par défaut est Render. Pour l’API de **ton** PC :
 
 ```bat
 cd FutBolia\scripts
