@@ -62,6 +62,9 @@ class AuthSession extends ChangeNotifier {
     } on ApiException catch (e) {
       errorMessage = e.message;
       rethrow;
+    } catch (e) {
+      errorMessage = 'Inscription impossible: $e';
+      rethrow;
     } finally {
       notifyListeners();
     }
@@ -82,6 +85,9 @@ class AuthSession extends ChangeNotifier {
       pendingEmailVerificationToken = null;
     } on ApiException catch (e) {
       errorMessage = e.message;
+      rethrow;
+    } catch (e) {
+      errorMessage = 'Connexion impossible: $e';
       rethrow;
     } finally {
       notifyListeners();
@@ -134,12 +140,19 @@ class AuthSession extends ChangeNotifier {
   }
 
   Future<void> _persistSession(Map<String, dynamic> data) async {
-    final access = data['accessToken'] as String;
-    final refresh = data['refreshToken'] as String;
+    final access = data['accessToken'] as String?;
+    final refresh = data['refreshToken'] as String?;
+    if (access == null || refresh == null) {
+      throw ApiException('Réponse d’authentification incomplète');
+    }
+    final rawUser = data['user'];
+    if (rawUser is! Map) {
+      throw ApiException('Réponse utilisateur invalide');
+    }
     await _storage.write(key: 'accessToken', value: access);
     await _storage.write(key: 'refreshToken', value: refresh);
     _api.setAccessToken(access);
-    user = FutBoliaUser.fromJson(data['user'] as Map<String, dynamic>);
+    user = FutBoliaUser.fromJson(Map<String, dynamic>.from(rawUser));
   }
 
   Future<void> _clearTokens() async {

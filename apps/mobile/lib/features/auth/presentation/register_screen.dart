@@ -36,8 +36,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) Navigator.of(context).pop();
     } catch (_) {
       if (!mounted) return;
-      final msg = context.read<AuthSession>().errorMessage ?? 'Inscription impossible';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      final msg =
+          context.read<AuthSession>().errorMessage ?? 'Inscription impossible';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), duration: const Duration(seconds: 6)),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
