@@ -38,7 +38,11 @@ class FbButton extends StatelessWidget {
       case FbButtonVariant.ghost:
         return TextButton(
           onPressed: loading ? null : onPressed,
-          style: TextButton.styleFrom(foregroundColor: FutBoliaColors.pitch),
+          style: TextButton.styleFrom(
+            foregroundColor: Theme.of(context).brightness == Brightness.dark
+                ? FutBoliaColors.lime
+                : FutBoliaColors.pitch,
+          ),
           child: child,
         );
     }

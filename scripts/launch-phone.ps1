@@ -183,7 +183,7 @@ Set-Location $project
 
 Write-Host ""
 Write-Host "========================================"
-Write-Host " FUTBOLIA - lancement telephone"
+Write-Host " MATCHARENA - lancement telephone"
 Write-Host "========================================"
 
 if ($env:FUTBOLIA_API_BASE_URL) {

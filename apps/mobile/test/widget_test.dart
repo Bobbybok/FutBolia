@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 
 void main() {
-  testWidgets('Login screen shows FutBolia brand', (tester) async {
+  testWidgets('Login screen shows MatchArena brand', (tester) async {
     await tester.pumpWidget(
       ChangeNotifierProvider(
         create: (_) => AuthSession(),
@@ -21,11 +21,12 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('FUTBOLIA'), findsOneWidget);
+    expect(find.byType(Image), findsWidgets);
     expect(find.text('Se connecter'), findsOneWidget);
+    expect(find.textContaining('MatchArena'), findsWidgets);
   });
 
-  testWidgets('Home shell keeps Chat and Profil in the bar', (tester) async {
+  testWidgets('Home shell keeps Messages and Profil in the bar', (tester) async {
     final session = AuthSession();
     session.bootstrapping = false;
     session.user = FutBoliaUser(
@@ -51,7 +52,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Accueil'), findsWidgets);
-    expect(find.text('Chat'), findsOneWidget);
+    expect(find.text('Messages'), findsOneWidget);
     expect(find.text('Profil'), findsOneWidget);
 
     await tester.tap(find.text('Profil'));
@@ -59,7 +60,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Réglages'), findsOneWidget);
-    expect(find.text('Chat'), findsOneWidget);
+    expect(find.text('Messages'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(Tab, 'Réglages'));
     await tester.pump();
@@ -67,6 +68,6 @@ void main() {
 
     expect(find.text('Thème sombre'), findsOneWidget);
     expect(find.text('Notifications'), findsOneWidget);
-    expect(find.text('Chat'), findsOneWidget);
+    expect(find.text('Messages'), findsOneWidget);
   });
 }

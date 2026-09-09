@@ -5,7 +5,7 @@ class AppSettings extends ChangeNotifier {
   static const _kDark = 'settings.darkMode';
   static const _kNotifs = 'settings.notificationsEnabled';
 
-  bool _darkMode = false;
+  bool _darkMode = true;
   bool _notificationsEnabled = true;
   bool _loaded = false;
 
@@ -16,7 +16,7 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-    _darkMode = prefs.getBool(_kDark) ?? false;
+    _darkMode = prefs.getBool(_kDark) ?? true;
     _notificationsEnabled = prefs.getBool(_kNotifs) ?? true;
     _loaded = true;
     notifyListeners();

@@ -1,5 +1,5 @@
 name: futbolia
-description: FutBolia — football à 5, futsal et tournois amateurs.
+description: MatchArena — football à 5, futsal et tournois amateurs.
 publish_to: "none"
 version: 0.1.0+1
 
@@ -23,6 +23,19 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/images/app_icon.png
+  adaptive_icon_background: "#070B09"
+  adaptive_icon_foreground: assets/images/app_icon.png
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/bg_stadium_night.jpg
+    - assets/images/bg_pitch.jpg
+    - assets/images/logo_matcharena.png
+    - assets/images/app_icon.png

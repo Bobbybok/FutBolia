@@ -57,6 +57,8 @@ class FutBoliaTheme {
     required Color outlinedForeground,
   }) {
     final textTheme = FutBoliaTypography.textTheme(brightness: brightness);
+    final isDark = brightness == Brightness.dark;
+    final radius = BorderRadius.circular(isDark ? 28 : 14);
 
     return ThemeData(
       useMaterial3: true,
@@ -72,56 +74,102 @@ class FutBoliaTheme {
         foregroundColor: onSurface,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: fill,
-        indicatorColor: FutBoliaColors.pitch.withValues(alpha: 0.18),
-        labelTextStyle: WidgetStatePropertyAll(textTheme.labelLarge),
+        backgroundColor: isDark ? FutBoliaColors.navDark : fill,
+        indicatorColor: FutBoliaColors.lime.withValues(alpha: 0.22),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return textTheme.labelLarge?.copyWith(
+            fontSize: 11,
+            color: selected
+                ? FutBoliaColors.lime
+                : onSurface.withValues(alpha: 0.7),
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected
+                ? FutBoliaColors.lime
+                : onSurface.withValues(alpha: 0.75),
+            size: 22,
+          );
+        }),
       ),
       tabBarTheme: TabBarThemeData(
         labelColor: onSurface,
-        unselectedLabelColor: onSurface.withValues(alpha: 0.62),
-        indicatorColor: FutBoliaColors.pitch,
+        unselectedLabelColor: onSurface.withValues(alpha: 0.55),
+        indicatorColor: FutBoliaColors.lime,
+        indicatorSize: TabBarIndicatorSize.label,
+        labelStyle: textTheme.titleMedium,
+        dividerColor: Colors.transparent,
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: FutBoliaColors.pitchDark,
+        foregroundColor: Colors.white,
+        extendedPadding: const EdgeInsets.symmetric(horizontal: 22),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: FutBoliaColors.lime, width: 1.2),
+        ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: FutBoliaColors.pitch,
+          backgroundColor: isDark ? FutBoliaColors.pitch : FutBoliaColors.pitch,
           foregroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(52),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          textStyle: textTheme.labelLarge,
+          minimumSize: const Size.fromHeight(54),
+          shape: RoundedRectangleBorder(borderRadius: radius),
+          textStyle: textTheme.labelLarge?.copyWith(fontSize: 16),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: outlinedForeground,
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size.fromHeight(54),
           side: BorderSide(color: line, width: 1.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: radius),
           textStyle: textTheme.labelLarge,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: fill,
+        fillColor: isDark
+            ? Colors.black.withValues(alpha: 0.35)
+            : fill,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
+          horizontal: 18,
+          vertical: 16,
         ),
+        hintStyle: textTheme.bodyMedium?.copyWith(
+          color: onSurface.withValues(alpha: 0.55),
+        ),
+        labelStyle: textTheme.bodyMedium?.copyWith(
+          color: onSurface.withValues(alpha: 0.7),
+        ),
+        prefixIconColor: onSurface.withValues(alpha: 0.85),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: line),
+          borderRadius: radius,
+          borderSide: BorderSide(
+            color: isDark ? Colors.white.withValues(alpha: 0.7) : line,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: line),
+          borderRadius: radius,
+          borderSide: BorderSide(
+            color: isDark ? Colors.white.withValues(alpha: 0.7) : line,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: FutBoliaColors.pitch, width: 2),
+          borderRadius: radius,
+          borderSide: BorderSide(
+            color: isDark ? FutBoliaColors.lime : FutBoliaColors.pitch,
+            width: 2,
+          ),
         ),
+      ),
+      cardTheme: CardThemeData(
+        color: isDark ? FutBoliaColors.cardDark : FutBoliaColors.surfaceRaised,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
     );
   }

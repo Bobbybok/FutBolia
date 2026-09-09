@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../design_system/components/fb_atmosphere.dart';
+import '../../../design_system/components/fb_brand.dart';
 import '../../../design_system/components/fb_button.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../application/auth_session.dart';
@@ -33,7 +35,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             password: _password.text,
             pseudo: _pseudo.text,
           );
-      // Logged in → RootGate shows HomeShell, which opens verify e-mail.
     } catch (_) {
       if (!mounted) return;
       final msg =
@@ -51,37 +52,80 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Créer un compte')),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          Text(
-            'Choisis un pseudo unique. Tu pourras compléter ton profil ensuite.',
-            style: textTheme.bodyLarge?.copyWith(color: FutBoliaColors.inkMuted),
-          ),
-          const SizedBox(height: 24),
-          TextField(
-            controller: _pseudo,
-            decoration: const InputDecoration(labelText: 'Pseudo'),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _email,
-            keyboardType: TextInputType.emailAddress,
-            autocorrect: false,
-            decoration: const InputDecoration(labelText: 'E-mail'),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _password,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'Mot de passe (8 caractères min.)',
+      body: FbAtmosphere(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(28, 12, 28, 24),
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          FbButton(label: 'S’inscrire', loading: _loading, onPressed: _submit),
-        ],
+            const Center(child: FbBrandLogo(height: 140)),
+            const SizedBox(height: 10),
+            Text(
+              'Choisis un pseudo unique. Tu pourras compléter ton profil ensuite.',
+              textAlign: TextAlign.center,
+              style: textTheme.bodyLarge?.copyWith(color: Colors.white70),
+            ),
+            const SizedBox(height: 28),
+            TextField(
+              controller: _pseudo,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'Pseudo',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'E-mail',
+                prefixIcon: Icon(Icons.mail_outline),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _password,
+              obscureText: true,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'Mot de passe (8 caractères min.)',
+                prefixIcon: Icon(Icons.lock_outline),
+              ),
+            ),
+            const SizedBox(height: 28),
+            FbButton(
+              label: 'S’inscrire',
+              loading: _loading,
+              onPressed: _submit,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Déjà un compte ?',
+              textAlign: TextAlign.center,
+              style: textTheme.bodyMedium?.copyWith(color: Colors.white70),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).maybePop(),
+              child: Text(
+                'Se connecter',
+                style: textTheme.bodyMedium?.copyWith(
+                  color: FutBoliaColors.lime,
+                  fontWeight: FontWeight.w700,
+                  decoration: TextDecoration.underline,
+                  decorationColor: FutBoliaColors.lime,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

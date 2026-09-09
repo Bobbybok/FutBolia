@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/realtime/socket_service.dart';
+import '../../../design_system/components/fb_brand.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../admin/admin_home_screen.dart';
 import '../../auth/application/auth_session.dart';
@@ -66,7 +67,6 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       _refreshUnread();
       return;
     }
-    // `inactive` fires on web when you click another window (2e compte) — not a real background.
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       SocketService.instance.setForeground(false);
@@ -82,9 +82,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       ]);
       if (!mounted) return;
       setState(() => _unread = counts[0] + counts[1]);
-    } catch (_) {
-      // Badge optionnel : une panne réseau ne bloque pas la nav.
-    }
+    } catch (_) {}
   }
 
   void _selectTab(int i) {
@@ -130,7 +128,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     final pages = [
       _tabNavigator(
         index: 0,
-        child: _HomeTab(onOpenTournaments: () => _selectTab(1)),
+        child: _HomeTab(
+          onOpenTournaments: () => _selectTab(1),
+          onOpenMatches: () => _selectTab(2),
+          onOpenMessages: () => _selectTab(3),
+          onOpenProfile: () => _selectTab(4),
+        ),
       ),
       _tabNavigator(index: 1, child: const TournamentsScreen()),
       _tabNavigator(index: 2, child: const PickupMatchesScreen()),
@@ -150,22 +153,27 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     final destinations = [
       const NavigationDestination(
         icon: Icon(Icons.home_outlined),
+        selectedIcon: Icon(Icons.home),
         label: 'Accueil',
       ),
       const NavigationDestination(
         icon: Icon(Icons.emoji_events_outlined),
+        selectedIcon: Icon(Icons.emoji_events),
         label: 'Tournois',
       ),
       const NavigationDestination(
         icon: Icon(Icons.sports_soccer_outlined),
+        selectedIcon: Icon(Icons.sports_soccer),
         label: 'Matchs',
       ),
       NavigationDestination(
         icon: messagesIcon,
-        label: 'Chat',
+        selectedIcon: messagesIcon,
+        label: 'Messages',
       ),
       const NavigationDestination(
         icon: Icon(Icons.person_outline),
+        selectedIcon: Icon(Icons.person),
         label: 'Profil',
       ),
       if (user.isStaff)
@@ -191,12 +199,16 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           selectedIndex: selected,
           onDestinationSelected: _selectTab,
           destinations: destinations,
+          height: 68,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         ),
         floatingActionButton: !user.emailVerified && _index == 0
             ? FloatingActionButton.extended(
                 onPressed: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const VerifyEmailScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const VerifyEmailScreen(),
+                    ),
                   );
                 },
                 backgroundColor: FutBoliaColors.clay,
@@ -210,37 +222,226 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 }
 
 class _HomeTab extends StatelessWidget {
-  const _HomeTab({required this.onOpenTournaments});
+  const _HomeTab({
+    required this.onOpenTournaments,
+    required this.onOpenMatches,
+    required this.onOpenMessages,
+    required this.onOpenProfile,
+  });
 
   final VoidCallback onOpenTournaments;
+  final VoidCallback onOpenMatches;
+  final VoidCallback onOpenMessages;
+  final VoidCallback onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthSession>().user!;
-    final muted = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65);
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          Text('FUTBOLIA', style: Theme.of(context).textTheme.displayMedium),
-          const SizedBox(height: 8),
-          Text(
-            'Salut ${user.displayPseudo}',
-            style: Theme.of(context).textTheme.headlineMedium,
+    final textTheme = Theme.of(context).textTheme;
+
+    return ColoredBox(
+      color: FutBoliaColors.surfaceDark,
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          children: [
+            const FbBrandHeader(),
+            const SizedBox(height: 18),
+            Text(
+              'Salut ${user.displayPseudo}',
+              style: textTheme.headlineMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              user.emailVerified
+                  ? 'Ton compte est prêt pour la saison.'
+                  : 'Vérifie ton e-mail pour créer ou rejoindre un tournoi.',
+              style: textTheme.bodyLarge?.copyWith(color: Colors.white70),
+            ),
+            const SizedBox(height: 22),
+            _HeroTile(
+              title: 'TOURNOIS',
+              subtitle: 'Découvre, crée et gère tes compétitions amateurs',
+              asset: 'assets/images/bg_stadium_night.jpg',
+              onTap: onOpenTournaments,
+              height: 132,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _GridTile(
+                    title: 'MATCHS\nAMICAUX',
+                    icon: Icons.sports_soccer,
+                    asset: 'assets/images/bg_pitch.jpg',
+                    onTap: onOpenMatches,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _GridTile(
+                    title: 'MESSAGES',
+                    icon: Icons.chat_bubble_outline,
+                    tint: FutBoliaColors.pitchDark,
+                    onTap: onOpenMessages,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _GridTile(
+                    title: 'PROFIL',
+                    icon: Icons.person_outline,
+                    tint: const Color(0xFF163528),
+                    onTap: onOpenProfile,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _GridTile(
+                    title: 'TOURNOIS\nPRO',
+                    icon: Icons.emoji_events_outlined,
+                    tint: const Color(0xFF0F2A1F),
+                    onTap: onOpenTournaments,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroTile extends StatelessWidget {
+  const _HeroTile({
+    required this.title,
+    required this.subtitle,
+    required this.asset,
+    required this.onTap,
+    this.height = 120,
+  });
+
+  final String title;
+  final String subtitle;
+  final String asset;
+  final VoidCallback onTap;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          height: height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            image: DecorationImage(
+              image: AssetImage(asset),
+              fit: BoxFit.cover,
+              colorFilter: const ColorFilter.mode(
+                Color(0xAA0B3D2A),
+                BlendMode.darken,
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            user.emailVerified
-                ? 'Ton compte est prêt pour les tournois.'
-                : 'Vérifie ton e-mail pour créer ou rejoindre un tournoi.',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: muted),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 28),
-          FilledButton(
-            onPressed: onOpenTournaments,
-            child: const Text('Voir les tournois'),
+        ),
+      ),
+    );
+  }
+}
+
+class _GridTile extends StatelessWidget {
+  const _GridTile({
+    required this.title,
+    required this.icon,
+    required this.onTap,
+    this.asset,
+    this.tint,
+  });
+
+  final String title;
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? asset;
+  final Color? tint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          height: 118,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: tint ?? FutBoliaColors.cardDark,
+            image: asset == null
+                ? null
+                : DecorationImage(
+                    image: AssetImage(asset!),
+                    fit: BoxFit.cover,
+                    colorFilter: const ColorFilter.mode(
+                      Color(0x99070B09),
+                      BlendMode.darken,
+                    ),
+                  ),
           ),
-        ],
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: Colors.white, size: 26),
+                const Spacer(),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        height: 1.15,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

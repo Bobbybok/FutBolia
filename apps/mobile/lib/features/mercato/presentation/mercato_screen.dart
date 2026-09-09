@@ -153,7 +153,7 @@ class _MercatoScreenState extends State<MercatoScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mercato FutBolia'),
+        title: const Text('Mercato MatchArena'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

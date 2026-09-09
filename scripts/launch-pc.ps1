@@ -116,7 +116,7 @@ if ($Local) {
 
 Write-Host ""
 Write-Host "========================================"
-Write-Host " FUTBOLIA - apercu PC (web)"
+Write-Host " MATCHARENA - apercu PC (web)"
 Write-Host "========================================"
 Write-Host " Chrome / Edge / Firefox / Opera : $localUrl"
 Write-Host " API        : $apiBaseUrl"

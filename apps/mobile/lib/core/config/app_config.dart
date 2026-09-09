@@ -1,6 +1,6 @@
-/// Runtime configuration for FutBolia mobile (Phase 1).
+/// Runtime configuration for MatchArena mobile (Phase 1).
 class AppConfig {
-  static const String appName = 'FutBolia';
+  static const String appName = 'MatchArena';
 
   /// Online API (Render free). Override locally with:
   /// `--dart-define=API_BASE_URL=http://10.0.2.2:3000/api/v1`

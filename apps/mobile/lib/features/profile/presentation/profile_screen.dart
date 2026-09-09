@@ -21,8 +21,16 @@ class ProfileScreen extends StatelessWidget {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
+        backgroundColor: FutBoliaColors.surfaceDark,
         appBar: AppBar(
-          title: const Text('Profil'),
+          title: Text(
+            'Profil',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontStyle: FontStyle.italic,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+          ),
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Profil'),
@@ -115,12 +123,51 @@ class _ProfileEditTabState extends State<_ProfileEditTab>
     }
 
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
       children: [
-        Text(user.displayPseudo, style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 6),
-        Text(user.email, style: Theme.of(context).textTheme.bodyMedium),
-        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 28, 16, 24),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            image: const DecorationImage(
+              image: AssetImage('assets/images/bg_stadium_night.jpg'),
+              fit: BoxFit.cover,
+              colorFilter: ColorFilter.mode(
+                Color(0xAA070B09),
+                BlendMode.darken,
+              ),
+            ),
+          ),
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: 42,
+                backgroundColor: FutBoliaColors.cardDark,
+                child: Icon(
+                  Icons.sports_soccer,
+                  size: 40,
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                user.displayPseudo,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                user.email,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white70,
+                    ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
         FbBadge(
           label: user.emailVerified ? 'E-MAIL VÉRIFIÉ' : 'E-MAIL À VÉRIFIER',
           background:
@@ -138,7 +185,7 @@ class _ProfileEditTabState extends State<_ProfileEditTab>
             },
           ),
         ],
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         TextField(
           controller: _firstName,
           decoration: const InputDecoration(labelText: 'Prénom (optionnel)'),

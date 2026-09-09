@@ -108,7 +108,7 @@ class _FoundationScreenState extends State<FoundationScreen>
                   children: [
                     const FbBadge(label: 'PHASE 1 · FOUNDATION'),
                     const SizedBox(height: 28),
-                    Text('FUTBOLIA', style: textTheme.displayMedium),
+                    Text('MATCHARENA', style: textTheme.displayMedium),
                     const SizedBox(height: 12),
                     Text(
                       'Tournois, équipes et mercato — une plateforme pour le foot amateur.',
