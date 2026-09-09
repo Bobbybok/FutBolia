@@ -7,6 +7,7 @@ import 'core/settings/app_settings.dart';
 import 'design_system/theme/futbolia_theme.dart';
 import 'features/auth/application/auth_session.dart';
 import 'features/auth/presentation/login_screen.dart';
+import 'features/chat/chat_overlay_controller.dart';
 import 'features/home/presentation/home_shell.dart';
 
 class FutBoliaApp extends StatelessWidget {
@@ -28,6 +29,7 @@ class FutBoliaApp extends StatelessWidget {
             return session;
           },
         ),
+        ChangeNotifierProvider(create: (_) => ChatOverlayController()),
       ],
       child: Consumer<AppSettings>(
         builder: (context, appSettings, _) {
@@ -70,6 +72,9 @@ class _RootGate extends StatelessWidget {
     }
 
     if (!session.isAuthenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<ChatOverlayController>().close();
+      });
       return const LoginScreen();
     }
 

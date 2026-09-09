@@ -232,17 +232,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
               label: 'Chat privé du tournoi',
               variant: FbButtonVariant.secondary,
               onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => TournamentChatScreen(
-                      tournamentId: widget.tournamentId,
-                      tournamentName: t['name']?.toString() ?? 'Tournoi',
-                      isOrganizer: isOrganizer,
-                      canClearForEveryone: isOrganizer,
-                      canSend: isMember,
-                      restoreInInbox: true,
-                    ),
-                  ),
+                openTournamentChat(
+                  context,
+                  tournamentId: widget.tournamentId,
+                  tournamentName: t['name']?.toString() ?? 'Tournoi',
+                  isOrganizer: isOrganizer,
+                  canClearForEveryone: isOrganizer,
+                  canSend: isMember,
+                  restoreInInbox: true,
                 );
               },
             ),

@@ -20,26 +20,20 @@ Future<void> openFromNotification(Map<String, String> data) async {
     case 'tournament_message':
       final tournamentId = data['tournamentId'] ?? '';
       if (tournamentId.isEmpty) return;
-      nav.push(
-        MaterialPageRoute(
-          builder: (_) => TournamentChatScreen(
-            tournamentId: tournamentId,
-            tournamentName: 'Chat tournoi',
-          ),
-        ),
+      await openTournamentChat(
+        nav.context,
+        tournamentId: tournamentId,
+        tournamentName: 'Chat tournoi',
       );
       return;
     case 'private_message':
       final conversationId = data['conversationId'] ?? '';
       if (conversationId.isEmpty) return;
-      nav.push(
-        MaterialPageRoute(
-          builder: (_) => ConversationScreen(
-            conversationId: conversationId,
-            friendName: 'Conversation',
-            friendId: data['senderId'],
-          ),
-        ),
+      await openDirectChat(
+        nav.context,
+        conversationId: conversationId,
+        friendName: 'Conversation',
+        friendId: data['senderId'],
       );
       return;
     case 'friend_request':

@@ -7,7 +7,27 @@ import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
 import '../../moderation/report_sheet.dart';
 import '../chat_actions.dart';
+import '../chat_overlay_controller.dart';
 import '../widgets/chat_thread.dart';
+
+Future<void> openTournamentChat(
+  BuildContext context, {
+  required String tournamentId,
+  required String tournamentName,
+  bool isOrganizer = false,
+  bool canClearForEveryone = false,
+  bool canSend = true,
+  bool restoreInInbox = false,
+}) async {
+  context.read<ChatOverlayController>().openTournament(
+        tournamentId: tournamentId,
+        tournamentName: tournamentName,
+        isOrganizer: isOrganizer,
+        canClearForEveryone: canClearForEveryone,
+        canSend: canSend,
+        restoreInInbox: restoreInInbox,
+      );
+}
 
 class TournamentChatScreen extends StatefulWidget {
   const TournamentChatScreen({
@@ -18,6 +38,7 @@ class TournamentChatScreen extends StatefulWidget {
     this.canClearForEveryone = false,
     this.canSend = true,
     this.restoreInInbox = false,
+    this.onLeave,
   });
 
   final String tournamentId;
@@ -26,6 +47,7 @@ class TournamentChatScreen extends StatefulWidget {
   final bool canClearForEveryone;
   final bool canSend;
   final bool restoreInInbox;
+  final VoidCallback? onLeave;
 
   @override
   State<TournamentChatScreen> createState() => _TournamentChatScreenState();
@@ -233,7 +255,7 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
             widget.tournamentId,
           );
       if (!mounted) return;
-      Navigator.of(context).pop();
+      widget.onLeave?.call();
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
@@ -265,14 +287,14 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
   Widget build(BuildContext context) {
     final isStaff = context.watch<AuthSession>().user?.isStaff ?? false;
     final canRemoveConversation = widget.canSend && !widget.restoreInInbox;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Chat privé · ${widget.tournamentName}'),
-        actions: [
-          if (widget.canSend ||
-              widget.canClearForEveryone ||
-              canRemoveConversation)
-            PopupMenuButton<String>(
+    return Column(
+      children: [
+        if (widget.canSend ||
+            widget.canClearForEveryone ||
+            canRemoveConversation)
+          Align(
+            alignment: Alignment.centerRight,
+            child: PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'clear') _clearMine();
                 if (value == 'hide') _hideChat();
@@ -296,9 +318,9 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
                   ),
               ],
             ),
-        ],
-      ),
-      body: ChatThread(
+          ),
+        Expanded(
+          child: ChatThread(
         messages: _messages,
         loading: _loading,
         error: _error,
@@ -323,7 +345,9 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
           targetId: m['authorId']?.toString() ?? '',
           title: 'Signaler ${m['authorPseudo'] ?? 'ce joueur'}',
         ),
-      ),
+          ),
+        ),
+      ],
     );
   }
 }

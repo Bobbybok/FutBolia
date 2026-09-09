@@ -7,8 +7,24 @@ import '../../design_system/tokens/colors.dart';
 import '../auth/application/auth_session.dart';
 import '../auth/domain/staff_label.dart';
 import '../chat/chat_actions.dart';
+import '../chat/chat_overlay_controller.dart';
 import '../chat/widgets/chat_thread.dart';
 import '../moderation/report_sheet.dart';
+
+Future<void> openDirectChat(
+  BuildContext context, {
+  required String conversationId,
+  required String friendName,
+  String? friendId,
+  bool canSend = true,
+}) async {
+  context.read<ChatOverlayController>().openDm(
+        conversationId: conversationId,
+        friendName: friendName,
+        friendId: friendId,
+        canSend: canSend,
+      );
+}
 
 class ConversationScreen extends StatefulWidget {
   const ConversationScreen({
@@ -17,12 +33,14 @@ class ConversationScreen extends StatefulWidget {
     required this.friendName,
     this.friendId,
     this.canSend = true,
+    this.onLeave,
   });
 
   final String conversationId;
   final String friendName;
   final String? friendId;
   final bool canSend;
+  final VoidCallback? onLeave;
 
   @override
   State<ConversationScreen> createState() => _ConversationScreenState();
@@ -230,7 +248,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     try {
       await _api.hideConversation(widget.conversationId);
       if (!mounted) return;
-      Navigator.of(context).pop();
+      widget.onLeave?.call();
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
@@ -240,11 +258,11 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   Widget build(BuildContext context) {
     final isStaff = context.watch<AuthSession>().user?.isStaff ?? false;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.friendName),
-        actions: [
-          PopupMenuButton<String>(
+    return Column(
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'clear') _clearChat();
               if (value == 'delete') _deleteConversation();
@@ -273,9 +291,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 ),
             ],
           ),
-        ],
-      ),
-      body: ChatThread(
+        ),
+        Expanded(
+          child: ChatThread(
         messages: _messages,
         loading: _loading,
         error: _error,
@@ -300,7 +318,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
           targetId: m['authorId']?.toString() ?? widget.friendId ?? '',
           title: 'Signaler ${m['authorPseudo'] ?? widget.friendName}',
         ),
-      ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -6,6 +6,7 @@ import '../../core/realtime/socket_service.dart';
 import '../../design_system/tokens/colors.dart';
 import '../auth/application/auth_session.dart';
 import '../chat/chat_actions.dart';
+import '../chat/chat_overlay_controller.dart';
 import '../chat/presentation/tournament_chat_screen.dart';
 import '../moderation/report_sheet.dart';
 import '../profile/presentation/public_profile_screen.dart';
@@ -99,30 +100,23 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
 
   Future<void> _open(Map<String, dynamic> conversation) async {
     if (conversation['kind'] == 'tournament') {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => TournamentChatScreen(
-            tournamentId: conversation['tournamentId']?.toString() ??
-                conversation['id'] as String,
-            tournamentName: conversation['name']?.toString() ?? 'Tournoi',
-            isOrganizer: conversation['isOrganizer'] == true,
-            canClearForEveryone: false,
-          ),
-        ),
+      openTournamentChat(
+        context,
+        tournamentId: conversation['tournamentId']?.toString() ??
+            conversation['id'] as String,
+        tournamentName: conversation['name']?.toString() ?? 'Tournoi',
+        isOrganizer: conversation['isOrganizer'] == true,
+        canClearForEveryone: false,
       );
     } else {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ConversationScreen(
-            conversationId: conversation['id'] as String,
-            friendName: conversationFriendName(conversation),
-            friendId: userIdOf(conversation),
-            canSend: conversation['canSend'] != false,
-          ),
-        ),
+      openDirectChat(
+        context,
+        conversationId: conversation['id'] as String,
+        friendName: conversationFriendName(conversation),
+        friendId: userIdOf(conversation),
+        canSend: conversation['canSend'] != false,
       );
     }
-    await _reload();
   }
 
   Future<void> _conversationActions(Map<String, dynamic> conversation) async {
@@ -133,6 +127,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
       await showModalBottomSheet<void>(
         context: context,
         showDragHandle: true,
+        useRootNavigator: true,
         builder: (ctx) => SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -142,7 +137,9 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                 title: const Text('Ouvrir le tournoi'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  Navigator.of(context).push(
+                  final overlay = context.read<ChatOverlayController>();
+                  if (!overlay.pinned) overlay.close();
+                  Navigator.of(context, rootNavigator: true).push(
                     MaterialPageRoute(
                       builder: (_) => TournamentDetailScreen(
                         tournamentId: tournamentId,
@@ -179,6 +176,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      useRootNavigator: true,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
