@@ -11,8 +11,10 @@ class AuthSession extends ChangeNotifier {
   AuthSession({
     ApiClient? apiClient,
     FlutterSecureStorage? storage,
+    bool Function()? notificationsEnabled,
   })  : _api = apiClient ?? ApiClient(),
-        _storage = storage ?? const FlutterSecureStorage() {
+        _storage = storage ?? const FlutterSecureStorage(),
+        _notificationsEnabled = notificationsEnabled ?? (() => true) {
     _api.onUnauthorized = _silentRefresh;
     _api.onAccessTokenChanged = (token) {
       SocketService.instance.updateToken(token);
@@ -21,6 +23,7 @@ class AuthSession extends ChangeNotifier {
 
   final ApiClient _api;
   final FlutterSecureStorage _storage;
+  final bool Function() _notificationsEnabled;
 
   static const _kAccess = 'accessToken';
   static const _kRefresh = 'refreshToken';
@@ -276,7 +279,9 @@ class AuthSession extends ChangeNotifier {
 
   Future<void> _startRealtime() async {
     SocketService.instance.connect(_api.accessToken);
-    await PushNotificationService.instance.start(_api);
+    if (_notificationsEnabled()) {
+      await PushNotificationService.instance.start(_api);
+    }
   }
 
   Future<void> _clearTokens() async {

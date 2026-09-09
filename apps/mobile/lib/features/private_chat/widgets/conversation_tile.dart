@@ -40,7 +40,7 @@ class ConversationTile extends StatelessWidget {
       onLongPress: onLongPress,
       leading: CircleAvatar(
         backgroundColor: _isTournament
-            ? const Color(0xFFE8F5E9)
+            ? Theme.of(context).colorScheme.primaryContainer
             : FutBoliaColors.lime,
         child: Icon(
           _isTournament ? Icons.emoji_events_outlined : Icons.person_outline,
@@ -54,7 +54,7 @@ class ConversationTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w400,
-          color: FutBoliaColors.inkMuted,
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
         ),
       ),
       trailing: unread > 0
@@ -66,7 +66,12 @@ class ConversationTile extends StatelessWidget {
                     : Icons.chat_bubble_outline,
               ),
             )
-          : const Icon(Icons.chevron_right, color: FutBoliaColors.inkMuted),
+          : Icon(
+              Icons.chevron_right,
+              color: Theme.of(context).colorScheme.onSurface.withValues(
+                alpha: 0.65,
+              ),
+            ),
     );
   }
 }

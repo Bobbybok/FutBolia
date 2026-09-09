@@ -5,14 +5,20 @@ import 'colors.dart';
 class FutBoliaTypography {
   FutBoliaTypography._();
 
-  static TextTheme textTheme() {
+  static TextTheme textTheme({Brightness brightness = Brightness.light}) {
+    final onSurface = brightness == Brightness.dark
+        ? FutBoliaColors.inkDark
+        : FutBoliaColors.ink;
+    final muted = brightness == Brightness.dark
+        ? FutBoliaColors.inkMutedDark
+        : FutBoliaColors.inkMuted;
     final display = GoogleFonts.archivo(
-      color: FutBoliaColors.ink,
+      color: onSurface,
       fontWeight: FontWeight.w800,
       letterSpacing: -0.5,
     );
     final body = GoogleFonts.manrope(
-      color: FutBoliaColors.ink,
+      color: onSurface,
       fontWeight: FontWeight.w500,
     );
 
@@ -28,7 +34,7 @@ class FutBoliaTypography {
       bodySmall: body.copyWith(
         fontSize: 12,
         height: 1.4,
-        color: FutBoliaColors.inkMuted,
+        color: muted,
       ),
       labelLarge: body.copyWith(
         fontSize: 14,

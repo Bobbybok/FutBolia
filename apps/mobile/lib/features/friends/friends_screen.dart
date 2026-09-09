@@ -8,7 +8,6 @@ import '../auth/application/auth_session.dart';
 import '../auth/domain/staff_label.dart';
 import '../moderation/report_sheet.dart';
 import '../private_chat/conversation_screen.dart';
-import '../private_chat/conversations_list_screen.dart';
 import '../pickup_matches/presentation/pickup_match_detail_screen.dart';
 import '../tournaments/presentation/tournament_detail_screen.dart';
 import '../invites/invite_friend_to_event_sheet.dart';
@@ -16,15 +15,16 @@ import '../profile/presentation/public_profile_screen.dart';
 import 'widgets/friend_tile.dart';
 
 class FriendsScreen extends StatefulWidget {
-  const FriendsScreen({super.key});
+  const FriendsScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   State<FriendsScreen> createState() => _FriendsScreenState();
 }
 
 class _FriendsScreenState extends State<FriendsScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabs;
+    with AutomaticKeepAliveClientMixin {
   final _search = TextEditingController();
   bool _loading = true;
   String? _error;
@@ -38,9 +38,11 @@ class _FriendsScreenState extends State<FriendsScreen>
   ApiClient get _api => context.read<AuthSession>().api;
 
   @override
+  bool get wantKeepAlive => widget.embedded;
+
+  @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this);
     _reload();
     final socket = SocketService.instance;
     _subs.add(socket.onFriendRequest.listen((_) => _reload(silent: true)));
@@ -53,7 +55,6 @@ class _FriendsScreenState extends State<FriendsScreen>
     for (final sub in _subs) {
       sub.cancel();
     }
-    _tabs.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -240,28 +241,15 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    final pending = _incoming.length + _eventInvites.length;
+    final body = RefreshIndicator(onRefresh: _reload, child: _friendsTab());
+    if (widget.embedded) return body;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Amis'),
-        bottom: TabBar(
-          controller: _tabs,
-          tabs: [
-            Tab(
-              text: (_incoming.isEmpty && _eventInvites.isEmpty)
-                  ? 'Amis'
-                  : 'Amis (${_incoming.length + _eventInvites.length})',
-            ),
-            const Tab(text: 'Messages'),
-          ],
-        ),
+        title: Text(pending == 0 ? 'Amis' : 'Amis ($pending)'),
       ),
-      body: TabBarView(
-        controller: _tabs,
-        children: [
-          RefreshIndicator(onRefresh: _reload, child: _friendsTab()),
-          const ConversationsListScreen(embedded: true),
-        ],
-      ),
+      body: body,
     );
   }
 

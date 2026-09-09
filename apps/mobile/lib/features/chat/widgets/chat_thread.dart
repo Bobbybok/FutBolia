@@ -48,7 +48,9 @@ class ChatThread extends StatelessWidget {
               cannotSendHint!,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: FutBoliaColors.inkMuted,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(
+                      alpha: 0.65,
+                    ),
                   ),
             ),
           ),
@@ -69,7 +71,9 @@ class ChatThread extends StatelessWidget {
         child: Text(
           emptyLabel,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: FutBoliaColors.inkMuted,
+                color: Theme.of(context).colorScheme.onSurface.withValues(
+                  alpha: 0.65,
+                ),
               ),
         ),
       );
@@ -103,9 +107,15 @@ class ChatThread extends StatelessWidget {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: mine ? FutBoliaColors.pitch : FutBoliaColors.surfaceRaised,
+                  color: mine
+                      ? FutBoliaColors.pitch
+                      : Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(14),
-                  border: mine ? null : Border.all(color: FutBoliaColors.line),
+                  border: mine
+                      ? null
+                      : Border.all(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,7 +158,9 @@ class ChatThread extends StatelessWidget {
                     Text(
                       m['body']?.toString() ?? '',
                       style: TextStyle(
-                        color: mine ? Colors.white : FutBoliaColors.ink,
+                        color: mine
+                            ? Colors.white
+                            : Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                   ],
@@ -226,8 +238,9 @@ class ChatThread extends StatelessWidget {
   Widget _composer(BuildContext context) {
     return SafeArea(
       top: false,
+      bottom: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         child: Row(
           children: [
             Expanded(

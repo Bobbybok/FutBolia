@@ -14,6 +14,12 @@ class FutBoliaColors {
   static const Color surface = Color(0xFFF3F7F4);
   static const Color surfaceRaised = Color(0xFFFFFFFF);
   static const Color line = Color(0xFFD5E2DB);
+
+  static const Color inkDark = Color(0xFFE7F0EB);
+  static const Color inkMutedDark = Color(0xFF9BB0A6);
+  static const Color surfaceDark = Color(0xFF0E1713);
+  static const Color surfaceRaisedDark = Color(0xFF18241E);
+  static const Color lineDark = Color(0xFF2C3F37);
   static const Color danger = Color(0xFFC62828);
   static const Color success = Color(0xFF1B7A4A);
 }

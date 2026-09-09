@@ -5,20 +5,61 @@ import '../../../design_system/components/fb_button.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
 import '../../auth/presentation/verify_email_screen.dart';
+import '../../friends/friends_screen.dart';
+import 'settings_tab.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  Widget build(BuildContext context) {
+    final user = context.watch<AuthSession>().user;
+    if (user == null) {
+      return const Scaffold(body: Center(child: Text('Non connecté')));
+    }
+
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Profil'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Profil'),
+              Tab(text: 'Amis'),
+              Tab(text: 'Réglages'),
+            ],
+          ),
+        ),
+        body: const TabBarView(
+          children: [
+            _ProfileEditTab(),
+            FriendsScreen(embedded: true),
+            SettingsTab(),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileEditTab extends StatefulWidget {
+  const _ProfileEditTab();
+
+  @override
+  State<_ProfileEditTab> createState() => _ProfileEditTabState();
+}
+
+class _ProfileEditTabState extends State<_ProfileEditTab>
+    with AutomaticKeepAliveClientMixin {
   final _city = TextEditingController();
   final _bio = TextEditingController();
   final _firstName = TextEditingController();
   bool _loading = false;
   bool _initialized = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void didChangeDependencies() {
@@ -45,7 +86,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _loading = true);
     try {
       await context.read<AuthSession>().updateProfile({
-        'firstName': _firstName.text.trim().isEmpty ? null : _firstName.text.trim(),
+        'firstName':
+            _firstName.text.trim().isEmpty ? null : _firstName.text.trim(),
         'city': _city.text.trim().isEmpty ? null : _city.text.trim(),
         'bio': _bio.text.trim().isEmpty ? null : _bio.text.trim(),
       });
@@ -55,7 +97,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     } catch (_) {
       if (!mounted) return;
-      final msg = context.read<AuthSession>().errorMessage ?? 'Mise à jour impossible';
+      final msg =
+          context.read<AuthSession>().errorMessage ?? 'Mise à jour impossible';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -64,66 +107,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final session = context.watch<AuthSession>();
     final user = session.user;
     if (user == null) {
-      return const Scaffold(body: Center(child: Text('Non connecté')));
+      return const Center(child: Text('Non connecté'));
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profil'),
-        actions: [
-          IconButton(
-            onPressed: () => session.logout(),
-            icon: const Icon(Icons.logout),
-            tooltip: 'Déconnexion',
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          Text(user.displayPseudo, style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 6),
-          Text(user.email, style: Theme.of(context).textTheme.bodyMedium),
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Text(user.displayPseudo, style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 6),
+        Text(user.email, style: Theme.of(context).textTheme.bodyMedium),
+        const SizedBox(height: 12),
+        FbBadge(
+          label: user.emailVerified ? 'E-MAIL VÉRIFIÉ' : 'E-MAIL À VÉRIFIER',
+          background:
+              user.emailVerified ? FutBoliaColors.lime : const Color(0xFFFFE0B2),
+        ),
+        if (!user.emailVerified) ...[
           const SizedBox(height: 12),
-          FbBadge(
-            label: user.emailVerified ? 'E-MAIL VÉRIFIÉ' : 'E-MAIL À VÉRIFIER',
-            background: user.emailVerified ? FutBoliaColors.lime : const Color(0xFFFFE0B2),
+          FbButton(
+            label: 'Vérifier mon e-mail',
+            variant: FbButtonVariant.secondary,
+            onPressed: () {
+              Navigator.of(context, rootNavigator: true).push(
+                MaterialPageRoute(builder: (_) => const VerifyEmailScreen()),
+              );
+            },
           ),
-          if (!user.emailVerified) ...[
-            const SizedBox(height: 12),
-            FbButton(
-              label: 'Vérifier mon e-mail',
-              variant: FbButtonVariant.secondary,
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const VerifyEmailScreen()),
-                );
-              },
-            ),
-          ],
-          const SizedBox(height: 24),
-          TextField(
-            controller: _firstName,
-            decoration: const InputDecoration(labelText: 'Prénom (optionnel)'),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _city,
-            decoration: const InputDecoration(labelText: 'Ville'),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _bio,
-            maxLines: 3,
-            decoration: const InputDecoration(labelText: 'Description'),
-          ),
-          const SizedBox(height: 24),
-          FbButton(label: 'Enregistrer', loading: _loading, onPressed: _save),
         ],
-      ),
+        const SizedBox(height: 24),
+        TextField(
+          controller: _firstName,
+          decoration: const InputDecoration(labelText: 'Prénom (optionnel)'),
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: _city,
+          decoration: const InputDecoration(labelText: 'Ville'),
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: _bio,
+          maxLines: 3,
+          decoration: const InputDecoration(labelText: 'Description'),
+        ),
+        const SizedBox(height: 24),
+        FbButton(label: 'Enregistrer', loading: _loading, onPressed: _save),
+      ],
     );
   }
 }
