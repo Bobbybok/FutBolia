@@ -96,12 +96,13 @@ export class AuthService {
     }
 
     const passwordHash = await argon2.hash(dto.password);
+    const verificationRequired = this.isEmailVerificationRequired();
 
     const user = await this.users.save(
       this.users.create({
         email,
         passwordHash,
-        emailVerifiedAt: null,
+        emailVerifiedAt: verificationRequired ? null : new Date(),
         status: UserStatus.ACTIVE,
       }),
     );
@@ -113,20 +114,24 @@ export class AuthService {
       }),
     );
 
-    const verifyCode = await this.issueEmailVerificationCode(user.id);
-    const mailResult = await this.mail.sendVerificationCode(email, verifyCode);
-
     const tokens = await this.issueSession(user);
     const response: Record<string, unknown> = {
       user: await this.toPublicUser(user.id),
       ...tokens,
-      emailVerificationRequired: true,
-      emailSent: mailResult.delivered,
+      emailVerificationRequired: verificationRequired,
+      emailSent: false,
     };
 
-    // Only expose the code when no real mail provider is configured (local/e2e).
-    if (!mailResult.delivered && this.config.get<string>('NODE_ENV') !== 'production') {
-      response.devEmailVerificationToken = verifyCode;
+    if (verificationRequired) {
+      const verifyCode = await this.issueEmailVerificationCode(user.id);
+      const mailResult = await this.mail.sendVerificationCode(email, verifyCode);
+      response.emailSent = mailResult.delivered;
+      if (
+        !mailResult.delivered &&
+        this.config.get<string>('NODE_ENV') !== 'production'
+      ) {
+        response.devEmailVerificationToken = verifyCode;
+      }
     }
 
     return response;
@@ -149,6 +154,9 @@ export class AuthService {
     if (!valid) {
       throw new UnauthorizedException('Identifiants invalides');
     }
+
+    // Tant que la vérif e-mail est désactivée, marquer les anciens comptes comme vérifiés.
+    await this.ensureVerifiedWhenDisabled(user);
 
     const tokens = await this.issueSession(user);
     return {
@@ -174,6 +182,8 @@ export class AuthService {
     if (!user || user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException('Jeton de rafraîchissement invalide');
     }
+
+    await this.ensureVerifiedWhenDisabled(user);
 
     stored.revokedAt = new Date();
     await this.refreshTokens.save(stored);
@@ -204,6 +214,14 @@ export class AuthService {
   }
 
   async resendEmailVerification(userId: string) {
+    if (!this.isEmailVerificationRequired()) {
+      return {
+        success: true,
+        alreadyVerified: true,
+        message: 'La vérification e-mail est désactivée pour le moment',
+      };
+    }
+
     const user = await this.users.findOneByOrFail({ id: userId });
     if (user.emailVerifiedAt) {
       return {
@@ -360,6 +378,8 @@ export class AuthService {
     if (!user?.profile) {
       throw new BadRequestException('Profil utilisateur manquant');
     }
+
+    await this.ensureVerifiedWhenDisabled(user);
 
     const permissions = await this.listPermissions(user.id);
     const role = toPlatformRole(user.globalRole);
@@ -520,6 +540,21 @@ export class AuthService {
 
   private hashToken(raw: string) {
     return createHash('sha256').update(raw).digest('hex');
+  }
+
+  private isEmailVerificationRequired(): boolean {
+    return (
+      (this.config.get<string>('EMAIL_VERIFICATION_REQUIRED') ?? 'false')
+        .toLowerCase() === 'true'
+    );
+  }
+
+  private async ensureVerifiedWhenDisabled(user: User) {
+    if (this.isEmailVerificationRequired() || user.emailVerifiedAt) {
+      return;
+    }
+    user.emailVerifiedAt = new Date();
+    await this.users.save(user);
   }
 
   private parseDurationDays(value: string) {

@@ -1,7 +1,16 @@
 # Vérification e-mail (code à 6 chiffres)
 
-À l’inscription, FutBolia envoie un **code à 6 chiffres** (valable **15 minutes**).  
+**Actuellement désactivée** (`EMAIL_VERIFICATION_REQUIRED=false`) tant qu’il n’y a pas de domaine Resend.
+
+Quand elle est activée : à l’inscription, FutBolia envoie un **code à 6 chiffres** (valable **15 minutes**).  
 L’utilisateur le saisit dans l’app. Il peut **renvoyer** le code (1 / minute).
+
+## Activation
+
+Variable `EMAIL_VERIFICATION_REQUIRED` :
+
+- `false` (défaut actuel) : comptes marqués vérifiés à l’inscription / connexion, pas d’e-mail envoyé
+- `true` : codes à 6 chiffres via Resend/SMTP (nécessite un domaine pour envoyer à n’importe qui)
 
 ## Envoi des e-mails
 

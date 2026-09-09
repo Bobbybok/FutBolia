@@ -35,7 +35,9 @@ describe('Auth (e2e)', () => {
     await app.close();
   });
 
-  it('registers, verifies email, fetches profile', async () => {
+  it('registers without email verification when disabled', async () => {
+    process.env.EMAIL_VERIFICATION_REQUIRED = 'false';
+
     const register = await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({ email, password, pseudo })
@@ -43,12 +45,9 @@ describe('Auth (e2e)', () => {
 
     expect(register.body.accessToken).toBeDefined();
     expect(register.body.user.profile.pseudo).toBe(pseudo);
-    expect(register.body.devEmailVerificationToken).toBeDefined();
-
-    await request(app.getHttpServer())
-      .post('/api/v1/auth/verify-email')
-      .send({ token: register.body.devEmailVerificationToken })
-      .expect(200);
+    expect(register.body.emailVerificationRequired).toBe(false);
+    expect(register.body.user.emailVerified).toBe(true);
+    expect(register.body.devEmailVerificationToken).toBeUndefined();
 
     const me = await request(app.getHttpServer())
       .get('/api/v1/users/me')

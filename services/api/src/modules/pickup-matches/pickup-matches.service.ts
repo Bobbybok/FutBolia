@@ -7,6 +7,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, In, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
 import {
@@ -25,6 +26,7 @@ import { ScorePickupMatchDto } from './dto/score-pickup-match.dto';
 export class PickupMatchesService {
   constructor(
     @Inject(TYPEORM_DATA_SOURCE) private readonly dataSource: DataSource | null,
+    private readonly config: ConfigService,
   ) {}
 
   private get db(): DataSource {
@@ -254,6 +256,12 @@ export class PickupMatchesService {
   }
 
   private async requireVerifiedEmail(userId: string) {
+    const required =
+      (this.config.get<string>('EMAIL_VERIFICATION_REQUIRED') ?? 'false')
+        .toLowerCase() === 'true';
+    if (!required) {
+      return;
+    }
     const user = await this.users.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('Utilisateur introuvable');

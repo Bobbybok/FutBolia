@@ -56,7 +56,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         padding: const EdgeInsets.all(24),
         children: [
           Text(
-            'Choisis un pseudo unique. Un code de vérification sera envoyé par e-mail.',
+            'Choisis un pseudo unique. Tu pourras compléter ton profil ensuite.',
             style: textTheme.bodyLarge?.copyWith(color: FutBoliaColors.inkMuted),
           ),
           const SizedBox(height: 24),

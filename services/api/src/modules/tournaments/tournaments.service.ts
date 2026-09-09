@@ -7,6 +7,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, ILike, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
 import {
@@ -26,6 +27,7 @@ import { UpdateTournamentDto } from './dto/update-tournament.dto';
 export class TournamentsService {
   constructor(
     @Inject(TYPEORM_DATA_SOURCE) private readonly dataSource: DataSource | null,
+    private readonly config: ConfigService,
   ) {}
 
   private get db(): DataSource {
@@ -284,6 +286,12 @@ export class TournamentsService {
   }
 
   private async requireVerifiedEmail(userId: string) {
+    const required =
+      (this.config.get<string>('EMAIL_VERIFICATION_REQUIRED') ?? 'false')
+        .toLowerCase() === 'true';
+    if (!required) {
+      return;
+    }
     const user = await this.users.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('Utilisateur introuvable');

@@ -144,7 +144,7 @@ class AuthSession extends ChangeNotifier {
       await _persistSession(data);
       pendingEmailVerificationToken =
           data['devEmailVerificationToken'] as String?;
-      promptEmailVerification = true;
+      promptEmailVerification = data['emailVerificationRequired'] == true;
     } on ApiException catch (e) {
       errorMessage = e.message;
       rethrow;

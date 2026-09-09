@@ -54,3 +54,6 @@ services:
         sync: false
       - key: EMAIL_FROM
         value: FutBolia <onboarding@resend.dev>
+      # Set to "true" when a custom domain is ready for Resend.
+      - key: EMAIL_VERIFICATION_REQUIRED
+        value: "false"
