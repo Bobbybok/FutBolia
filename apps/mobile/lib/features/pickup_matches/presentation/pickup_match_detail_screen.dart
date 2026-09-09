@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/i18n/fr_labels.dart';
@@ -8,6 +7,7 @@ import '../../../design_system/components/fb_button.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
 import '../../auth/domain/staff_label.dart';
+import '../../invites/invite_friends_sheet.dart';
 
 class PickupMatchDetailScreen extends StatefulWidget {
   const PickupMatchDetailScreen({super.key, required this.matchId});
@@ -26,7 +26,6 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
   bool _leaving = false;
   bool _scoring = false;
   String? _error;
-  final _code = TextEditingController();
   final _homeScore = TextEditingController();
   final _awayScore = TextEditingController();
 
@@ -38,7 +37,6 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
 
   @override
   void dispose() {
-    _code.dispose();
     _homeScore.dispose();
     _awayScore.dispose();
     super.dispose();
@@ -73,10 +71,7 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
   Future<void> _join() async {
     setState(() => _joining = true);
     try {
-      await context.read<AuthSession>().api.joinPickupMatch(
-            widget.matchId,
-            code: _code.text.trim().isEmpty ? null : _code.text.trim(),
-          );
+      await context.read<AuthSession>().api.joinPickupMatch(widget.matchId);
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -182,7 +177,6 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
     final isHost = m['isHost'] == true;
     final isPrivate = m['visibility'] == 'private';
     final status = m['status']?.toString();
-    final joinCode = m['joinCode']?.toString();
     final members = (m['members'] as List?)
             ?.whereType<Map>()
             .map((e) => Map<String, dynamic>.from(e))
@@ -191,9 +185,8 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
     final home = members.where((e) => e['side'] == 'home').toList();
     final away = members.where((e) => e['side'] == 'away').toList();
     final canJoin = !isMember &&
-        (status == 'open') &&
-        status != 'cancelled' &&
-        status != 'finished';
+        !isPrivate &&
+        status == 'open';
     final canLeave = isMember &&
         !isHost &&
         status != 'finished' &&
@@ -238,43 +231,35 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ],
-          if (joinCode != null) ...[
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Code d’accès : $joinCode',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                IconButton(
-                  onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: joinCode));
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Code copié')),
-                    );
-                  },
-                  icon: const Icon(Icons.copy),
-                ),
-              ],
-            ),
-          ],
           const SizedBox(height: 24),
+          if (!isMember && isPrivate && status == 'open')
+            Text(
+              'Match privé : tu dois recevoir une invitation de l’hôte (onglet Amis).',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: FutBoliaColors.inkMuted,
+                  ),
+            ),
           if (canJoin) ...[
-            if (isPrivate)
-              TextField(
-                controller: _code,
-                textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(labelText: 'Code du match'),
-              ),
-            if (isPrivate) const SizedBox(height: 12),
             FbButton(
               label: 'Rejoindre le match',
               loading: _joining,
               onPressed: _join,
             ),
+            const SizedBox(height: 12),
+          ],
+          if (isHost && isPrivate && status == 'open') ...[
+            FbButton(
+              label: 'Inviter des amis',
+              variant: FbButtonVariant.secondary,
+              onPressed: () => showInviteFriendsSheet(
+                context,
+                targetType: 'pickup_match',
+                targetId: widget.matchId,
+                title:
+                    '${m['location']} · ${m['playersPerTeam']}v${m['playersPerTeam']}',
+              ),
+            ),
+            const SizedBox(height: 12),
           ],
           if (canLeave) ...[
             FbButton(

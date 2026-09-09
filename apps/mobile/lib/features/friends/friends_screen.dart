@@ -6,6 +6,9 @@ import '../auth/application/auth_session.dart';
 import '../auth/domain/staff_label.dart';
 import '../private_chat/conversation_screen.dart';
 import '../private_chat/conversations_list_screen.dart';
+import '../pickup_matches/presentation/pickup_match_detail_screen.dart';
+import '../tournaments/presentation/tournament_detail_screen.dart';
+import '../invites/invite_friend_to_event_sheet.dart';
 import 'widgets/friend_tile.dart';
 
 class FriendsScreen extends StatefulWidget {
@@ -24,6 +27,7 @@ class _FriendsScreenState extends State<FriendsScreen>
   List<Map<String, dynamic>> _friends = [];
   List<Map<String, dynamic>> _incoming = [];
   List<Map<String, dynamic>> _outgoing = [];
+  List<Map<String, dynamic>> _eventInvites = [];
   List<Map<String, dynamic>> _results = [];
 
   ApiClient get _api => context.read<AuthSession>().api;
@@ -50,11 +54,13 @@ class _FriendsScreenState extends State<FriendsScreen>
     try {
       final friends = await _api.listFriends();
       final requests = await _api.listFriendRequests();
+      final invites = await _api.listEventInvites();
       if (!mounted) return;
       setState(() {
         _friends = friends;
         _incoming = _asMaps(requests['incoming']);
         _outgoing = _asMaps(requests['outgoing']);
+        _eventInvites = invites;
       });
     } catch (e) {
       if (!mounted) return;
@@ -99,6 +105,38 @@ class _FriendsScreenState extends State<FriendsScreen>
       );
       _search.clear();
       setState(() => _results = []);
+      await _reload();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _acceptInvite(String id) async {
+    try {
+      final invite = await _api.acceptEventInvite(id);
+      await _reload();
+      if (!mounted) return;
+      final type = invite['targetType']?.toString();
+      final targetId = invite['targetId']?.toString();
+      if (type != null && targetId != null) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => type == 'tournament'
+                ? TournamentDetailScreen(tournamentId: targetId)
+                : PickupMatchDetailScreen(matchId: targetId),
+          ),
+        );
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _declineInvite(String id) async {
+    try {
+      await _api.declineEventInvite(id);
       await _reload();
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -183,9 +221,9 @@ class _FriendsScreenState extends State<FriendsScreen>
           controller: _tabs,
           tabs: [
             Tab(
-              text: _incoming.isEmpty
+              text: (_incoming.isEmpty && _eventInvites.isEmpty)
                   ? 'Amis'
-                  : 'Amis (${_incoming.length})',
+                  : 'Amis (${_incoming.length + _eventInvites.length})',
             ),
             const Tab(text: 'Messages'),
           ],
@@ -229,6 +267,42 @@ class _FriendsScreenState extends State<FriendsScreen>
             return FriendTile(
               user: user,
               trailing: _searchAction(user, status),
+            );
+          }),
+        ],
+        if (_eventInvites.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Invitations tournoi / match',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          ..._eventInvites.map((row) {
+            final inviter =
+                Map<String, dynamic>.from(row['inviter'] as Map? ?? {});
+            final kind = row['targetType'] == 'tournament' ? 'Tournoi' : 'Match';
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(row['targetLabel']?.toString() ?? kind),
+              subtitle: Text(
+                '$kind · invitation de ${staffPseudoOf(inviter)}',
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Accepter',
+                    onPressed: () => _acceptInvite(row['id'] as String),
+                    icon: const Icon(Icons.check),
+                    color: FutBoliaColors.success,
+                  ),
+                  IconButton(
+                    tooltip: 'Refuser',
+                    onPressed: () => _declineInvite(row['id'] as String),
+                    icon: const Icon(Icons.close),
+                    color: FutBoliaColors.danger,
+                  ),
+                ],
+              ),
             );
           }),
         ],
@@ -277,8 +351,30 @@ class _FriendsScreenState extends State<FriendsScreen>
         ..._friends.map(
           (user) => FriendTile(
             user: user,
-            onMessage: () => _message(user),
-            onUnfriend: () => _unfriend(user),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Inviter',
+                  onPressed: () => showInviteFriendToEventSheet(
+                    context,
+                    friend: user,
+                  ),
+                  icon: const Icon(Icons.mail_outline),
+                ),
+                IconButton(
+                  tooltip: 'Message',
+                  onPressed: () => _message(user),
+                  icon: const Icon(Icons.chat_bubble_outline),
+                ),
+                IconButton(
+                  tooltip: 'Retirer',
+                  onPressed: () => _unfriend(user),
+                  icon: const Icon(Icons.person_remove_outlined),
+                  color: FutBoliaColors.danger,
+                ),
+              ],
+            ),
           ),
         ),
       ],

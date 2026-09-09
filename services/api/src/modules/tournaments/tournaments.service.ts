@@ -7,7 +7,6 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { randomBytes } from 'crypto';
 import { DataSource, ILike, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
 import {
@@ -52,10 +51,6 @@ export class TournamentsService {
     await this.requireVerifiedEmail(userId);
 
     const visibility = dto.visibility ?? TournamentVisibility.PUBLIC;
-    const joinCode =
-      visibility === TournamentVisibility.PRIVATE
-        ? await this.generateUniqueJoinCode()
-        : null;
 
     const startersCount = dto.startersCount ?? 5;
     const substitutesCount = dto.substitutesCount ?? 2;
@@ -72,8 +67,8 @@ export class TournamentsService {
         rulesText: dto.rulesText?.trim() || null,
         mode: dto.mode ?? TournamentMode.CLASSIC,
         visibility,
-        joinCode,
-        joinCodeEnabled: visibility === TournamentVisibility.PRIVATE,
+        joinCode: null,
+        joinCodeEnabled: false,
         status: TournamentStatus.REGISTRATION_OPEN,
         createdById: userId,
       }),
@@ -176,28 +171,16 @@ export class TournamentsService {
 
     if (dto.visibility !== undefined) {
       tournament.visibility = dto.visibility;
-      if (
-        dto.visibility === TournamentVisibility.PRIVATE &&
-        !tournament.joinCode
-      ) {
-        tournament.joinCode = await this.generateUniqueJoinCode();
-        tournament.joinCodeEnabled = true;
-      }
       if (dto.visibility === TournamentVisibility.PUBLIC) {
         tournament.joinCodeEnabled = false;
+        tournament.joinCode = null;
       }
     }
 
     if (dto.joinCodeEnabled !== undefined) {
-      if (tournament.visibility !== TournamentVisibility.PRIVATE) {
-        throw new BadRequestException(
-          "Le code d'invitation s'applique uniquement aux tournois privés",
-        );
-      }
-      tournament.joinCodeEnabled = dto.joinCodeEnabled;
-      if (dto.joinCodeEnabled && !tournament.joinCode) {
-        tournament.joinCode = await this.generateUniqueJoinCode();
-      }
+      // Codes d'accès obsolètes : on ignore / force off.
+      tournament.joinCodeEnabled = false;
+      tournament.joinCode = null;
     }
 
     await this.tournaments.save(tournament);
@@ -215,19 +198,17 @@ export class TournamentsService {
   }
 
   async regenerateJoinCode(id: string, userId: string) {
-    const tournament = await this.requireOrganizer(id, userId);
-    if (tournament.visibility !== TournamentVisibility.PRIVATE) {
-      throw new BadRequestException(
-        "Le code d'invitation s'applique uniquement aux tournois privés",
-      );
-    }
-    tournament.joinCode = await this.generateUniqueJoinCode();
-    tournament.joinCodeEnabled = true;
-    await this.tournaments.save(tournament);
-    return this.getById(id, userId);
+    await this.requireOrganizer(id, userId);
+    throw new BadRequestException(
+      'Les codes d’accès sont remplacés par les invitations d’amis',
+    );
   }
 
-  async join(id: string, userId: string, code?: string) {
+  async join(
+    id: string,
+    userId: string,
+    options?: { code?: string; viaInvite?: boolean },
+  ) {
     await this.requireVerifiedEmail(userId);
 
     const tournament = await this.tournaments.findOne({ where: { id } });
@@ -240,11 +221,10 @@ export class TournamentsService {
     }
 
     if (tournament.visibility === TournamentVisibility.PRIVATE) {
-      if (!tournament.joinCodeEnabled || !tournament.joinCode) {
-        throw new ForbiddenException("Le code d'invitation est désactivé");
-      }
-      if (!code || code.trim().toUpperCase() !== tournament.joinCode) {
-        throw new ForbiddenException("Code d'invitation invalide");
+      if (!options?.viaInvite) {
+        throw new ForbiddenException(
+          'Ce tournoi est privé : demande une invitation à l’organisateur',
+        );
       }
     }
 
@@ -336,19 +316,6 @@ export class TournamentsService {
     return tournament;
   }
 
-  private async generateUniqueJoinCode() {
-    for (let i = 0; i < 8; i++) {
-      const code = randomBytes(3).toString('hex').toUpperCase().slice(0, 6);
-      const exists = await this.tournaments.findOne({
-        where: { joinCode: code },
-      });
-      if (!exists) {
-        return code;
-      }
-    }
-    throw new BadRequestException("Impossible de générer un code d'invitation");
-  }
-
   private async toPublic(
     tournament: Tournament,
     viewerId?: string,
@@ -385,8 +352,7 @@ export class TournamentsService {
       mode: tournament.mode,
       visibility: tournament.visibility,
       status: tournament.status,
-      joinCodeEnabled: tournament.joinCodeEnabled,
-      joinCode: isOrganizer ? tournament.joinCode : undefined,
+      joinCodeEnabled: false,
       membersCount,
       myRole: membership?.role ?? null,
       createdById: tournament.createdById,

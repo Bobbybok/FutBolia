@@ -7,7 +7,6 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { randomBytes } from 'crypto';
 import { DataSource, In, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
 import {
@@ -51,10 +50,6 @@ export class PickupMatchesService {
     await this.requireVerifiedEmail(userId);
 
     const visibility = dto.visibility ?? TournamentVisibility.PUBLIC;
-    const joinCode =
-      visibility === TournamentVisibility.PRIVATE
-        ? await this.generateUniqueJoinCode()
-        : null;
 
     const match = await this.matches.save(
       this.matches.create({
@@ -62,7 +57,7 @@ export class PickupMatchesService {
         scheduledAt: new Date(dto.scheduledAt),
         location: dto.location.trim(),
         visibility,
-        joinCode,
+        joinCode: null,
         status: PickupMatchStatus.OPEN,
         createdById: userId,
       }),
@@ -116,7 +111,11 @@ export class PickupMatchesService {
     return this.toPublic(match, viewerId, true);
   }
 
-  async join(id: string, userId: string, code?: string) {
+  async join(
+    id: string,
+    userId: string,
+    options?: { code?: string; viaInvite?: boolean },
+  ) {
     await this.requireVerifiedEmail(userId);
 
     const match = await this.matches.findOne({ where: { id } });
@@ -136,11 +135,10 @@ export class PickupMatchesService {
     }
 
     if (match.visibility === TournamentVisibility.PRIVATE) {
-      if (!match.joinCode) {
-        throw new ForbiddenException("Le code d'invitation est indisponible");
-      }
-      if (!code || code.trim().toUpperCase() !== match.joinCode) {
-        throw new ForbiddenException("Code d'invitation invalide");
+      if (!options?.viaInvite) {
+        throw new ForbiddenException(
+          'Ce match est privé : demande une invitation à l’hôte',
+        );
       }
     }
 
@@ -278,19 +276,6 @@ export class PickupMatchesService {
     return match;
   }
 
-  private async generateUniqueJoinCode() {
-    for (let i = 0; i < 8; i++) {
-      const code = randomBytes(3).toString('hex').toUpperCase().slice(0, 6);
-      const exists = await this.matches.findOne({
-        where: { joinCode: code },
-      });
-      if (!exists) {
-        return code;
-      }
-    }
-    throw new BadRequestException("Impossible de générer un code d'invitation");
-  }
-
   private async toPublic(
     match: PickupMatch,
     viewerId?: string,
@@ -351,7 +336,6 @@ export class PickupMatchesService {
       status: match.status,
       homeScore: match.homeScore,
       awayScore: match.awayScore,
-      joinCode: isHost ? match.joinCode : undefined,
       membersCount,
       mySide: membership?.side ?? null,
       isHost,

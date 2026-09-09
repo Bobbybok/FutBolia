@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/network/api_client.dart';
 import '../../../design_system/components/fb_badge.dart';
@@ -8,6 +7,7 @@ import '../../../design_system/tokens/colors.dart';
 import '../../../core/i18n/fr_labels.dart';
 import '../../auth/application/auth_session.dart';
 import '../../auth/domain/staff_label.dart';
+import '../../invites/invite_friends_sheet.dart';
 import '../../teams/presentation/teams_section.dart';
 import '../../mercato/presentation/mercato_screen.dart';
 import '../../matches/presentation/matches_screen.dart';
@@ -28,18 +28,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
   bool _loading = true;
   bool _joining = false;
   String? _error;
-  final _code = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _load();
-  }
-
-  @override
-  void dispose() {
-    _code.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -72,10 +65,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
   Future<void> _join() async {
     setState(() => _joining = true);
     try {
-      await context.read<AuthSession>().api.joinTournament(
-            widget.tournamentId,
-            code: _code.text.trim().isEmpty ? null : _code.text.trim(),
-          );
+      await context.read<AuthSession>().api.joinTournament(widget.tournamentId);
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -142,7 +132,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
     final t = _tournament!;
     final isMember = t['myRole'] != null;
     final isPrivate = t['visibility'] == 'private';
-    final joinCode = t['joinCode']?.toString();
+    final isOrganizer = t['myRole'] == 'organizer';
 
     return Scaffold(
       appBar: AppBar(title: Text(t['name']?.toString() ?? 'Tournoi')),
@@ -179,49 +169,41 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
           Text('Équipes max : ${t['maxTeams']}'),
           Text('Titulaires / remplaçants : ${t['startersCount']} / ${t['substitutesCount']}'),
           Text('Participants : ${t['membersCount'] ?? _members.length}'),
-          if (joinCode != null) ...[
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Code d’accès : $joinCode',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                IconButton(
-                  onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: joinCode));
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Code copié')),
-                    );
-                  },
-                  icon: const Icon(Icons.copy),
-                ),
-              ],
-            ),
-          ],
           const SizedBox(height: 24),
           if (!isMember) ...[
             if (isPrivate)
-              TextField(
-                controller: _code,
-                textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(labelText: 'Code du tournoi'),
+              Text(
+                'Tournoi privé : tu dois recevoir une invitation de l’organisateur (onglet Amis).',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: FutBoliaColors.inkMuted,
+                    ),
+              )
+            else
+              FbButton(
+                label: 'Rejoindre le tournoi',
+                loading: _joining,
+                onPressed: _join,
               ),
-            if (isPrivate) const SizedBox(height: 12),
-            FbButton(
-              label: 'Rejoindre le tournoi',
-              loading: _joining,
-              onPressed: _join,
-            ),
-          ] else
+          ] else ...[
             FbBadge(
               label:
                   'Membre · ${FrLabels.memberRole(t['myRole']?.toString())}',
               background: FutBoliaColors.lime,
             ),
+            if (isPrivate && isOrganizer) ...[
+              const SizedBox(height: 16),
+              FbButton(
+                label: 'Inviter des amis',
+                variant: FbButtonVariant.secondary,
+                onPressed: () => showInviteFriendsSheet(
+                  context,
+                  targetType: 'tournament',
+                  targetId: widget.tournamentId,
+                  title: t['name']?.toString() ?? 'Tournoi',
+                ),
+              ),
+            ],
+          ],
           if (isMember) ...[
             const SizedBox(height: 28),
             FbButton(

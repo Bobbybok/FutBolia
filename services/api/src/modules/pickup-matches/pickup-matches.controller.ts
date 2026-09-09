@@ -57,7 +57,7 @@ export class PickupMatchesController {
     @CurrentUser() user: AuthUser,
     @Body() dto: JoinPickupMatchDto,
   ) {
-    return this.pickupMatchesService.join(id, user.id, dto.code);
+    return this.pickupMatchesService.join(id, user.id, { code: dto.code });
   }
 
   @Post(':id/leave')

@@ -163,7 +163,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
             decoration: const InputDecoration(labelText: 'Visibilité'),
             items: const [
               DropdownMenuItem(value: 'public', child: Text('Public')),
-              DropdownMenuItem(value: 'private', child: Text('Privé (code)')),
+              DropdownMenuItem(value: 'private', child: Text('Privé (invitation)')),
             ],
             onChanged: (v) => setState(() => _visibility = v ?? 'public'),
           ),

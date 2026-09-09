@@ -26,6 +26,7 @@ import { Report } from '../modules/admin/entities/report.entity';
 import { FriendRequest } from '../modules/friends/entities/friend-request.entity';
 import { Conversation } from '../modules/private-chat/entities/conversation.entity';
 import { DirectMessage } from '../modules/private-chat/entities/direct-message.entity';
+import { EventInvite } from '../modules/invites/entities/event-invite.entity';
 
 export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
 
@@ -76,6 +77,7 @@ export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
             FriendRequest,
             Conversation,
             DirectMessage,
+            EventInvite,
           ],
           synchronize: (() => {
             const explicit = config.get<string>('DATABASE_SYNC');

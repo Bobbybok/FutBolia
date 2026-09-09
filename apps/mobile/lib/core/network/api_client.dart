@@ -642,6 +642,30 @@ class ApiClient {
     return _getList('/friends');
   }
 
+  Future<List<Map<String, dynamic>>> listEventInvites() {
+    return _getList('/invites');
+  }
+
+  Future<Map<String, dynamic>> createEventInvites({
+    required String targetType,
+    required String targetId,
+    required List<String> friendIds,
+  }) {
+    return _post('/invites', {
+      'targetType': targetType,
+      'targetId': targetId,
+      'friendIds': friendIds,
+    }, auth: true);
+  }
+
+  Future<Map<String, dynamic>> acceptEventInvite(String id) {
+    return _post('/invites/$id/accept', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> declineEventInvite(String id) {
+    return _post('/invites/$id/decline', {}, auth: true);
+  }
+
   Future<Map<String, dynamic>> listFriendRequests() {
     return _get('/friends/requests', auth: true);
   }

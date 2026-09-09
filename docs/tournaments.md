@@ -13,6 +13,5 @@
 ## Règles
 
 - Création / inscription : e-mail vérifié obligatoire
-- Public : visible dans la recherche
-- Privé : code généré, modifiable / désactivable
-- Le code n’est renvoyé qu’à l’organisateur
+- Public : visible dans la recherche, rejoindre librement
+- Privé : accès uniquement par **invitation d’ami** (organisateur) — plus de code

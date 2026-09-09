@@ -87,7 +87,7 @@ export class TournamentsController {
     @CurrentUser() user: AuthUser,
     @Body() dto: JoinTournamentDto,
   ) {
-    return this.tournamentsService.join(id, user.id, dto.code);
+    return this.tournamentsService.join(id, user.id, { code: dto.code });
   }
 
   @Post(':id/join-code/regenerate')

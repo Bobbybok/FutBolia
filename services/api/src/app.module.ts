@@ -15,6 +15,7 @@ import { ForumModule } from './modules/forum/forum.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { FriendsModule } from './modules/friends/friends.module';
 import { PrivateChatModule } from './modules/private-chat/private-chat.module';
+import { InvitesModule } from './modules/invites/invites.module';
 import { DatabaseModule } from './database/database.module';
 import { validateEnv } from './config/env.validation';
 
@@ -48,6 +49,7 @@ import { validateEnv } from './config/env.validation';
     AdminModule,
     FriendsModule,
     PrivateChatModule,
+    InvitesModule,
   ],
   providers: [
     {

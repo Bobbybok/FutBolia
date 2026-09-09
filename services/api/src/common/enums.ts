@@ -164,3 +164,15 @@ export enum FriendRequestStatus {
   ACCEPTED = 'accepted',
   DECLINED = 'declined',
 }
+
+export enum EventInviteTargetType {
+  TOURNAMENT = 'tournament',
+  PICKUP_MATCH = 'pickup_match',
+}
+
+export enum EventInviteStatus {
+  PENDING = 'pending',
+  ACCEPTED = 'accepted',
+  DECLINED = 'declined',
+  CANCELLED = 'cancelled',
+}
