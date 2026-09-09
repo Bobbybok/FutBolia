@@ -24,6 +24,7 @@ export class UsersController {
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
   getPublic(@Param('id') id: string) {
     return this.usersService.getPublicProfile(id);
   }

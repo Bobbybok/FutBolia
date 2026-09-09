@@ -4,11 +4,13 @@ import '../../core/network/api_client.dart';
 import '../../design_system/tokens/colors.dart';
 import '../auth/application/auth_session.dart';
 import '../auth/domain/staff_label.dart';
+import '../moderation/report_sheet.dart';
 import '../private_chat/conversation_screen.dart';
 import '../private_chat/conversations_list_screen.dart';
 import '../pickup_matches/presentation/pickup_match_detail_screen.dart';
 import '../tournaments/presentation/tournament_detail_screen.dart';
 import '../invites/invite_friend_to_event_sheet.dart';
+import '../profile/presentation/public_profile_screen.dart';
 import 'widgets/friend_tile.dart';
 
 class FriendsScreen extends StatefulWidget {
@@ -201,6 +203,7 @@ class _FriendsScreenState extends State<FriendsScreen>
           builder: (_) => ConversationScreen(
             conversationId: conv['id'] as String,
             friendName: staffPseudoOf(conv['friend'] ?? user),
+            friendId: userIdOf(conv['friend'] ?? user),
             canSend: conv['canSend'] != false,
           ),
         ),
@@ -210,6 +213,17 @@ class _FriendsScreenState extends State<FriendsScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     }
+  }
+
+  Future<void> _report(Map<String, dynamic> user) async {
+    final id = userIdOf(user);
+    if (id == null) return;
+    await showReportSheet(
+      context,
+      type: 'user',
+      targetId: id,
+      title: 'Signaler ${staffPseudoOf(user)}',
+    );
   }
 
   @override
@@ -266,7 +280,17 @@ class _FriendsScreenState extends State<FriendsScreen>
             final status = user['friendship']?.toString() ?? 'none';
             return FriendTile(
               user: user,
-              trailing: _searchAction(user, status),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Signaler',
+                    onPressed: () => _report(user),
+                    icon: const Icon(Icons.flag_outlined),
+                  ),
+                  _searchAction(user, status),
+                ],
+              ),
             );
           }),
         ],
@@ -317,6 +341,11 @@ class _FriendsScreenState extends State<FriendsScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
+                    tooltip: 'Signaler',
+                    onPressed: () => _report(user),
+                    icon: const Icon(Icons.flag_outlined),
+                  ),
+                  IconButton(
                     tooltip: 'Accepter',
                     onPressed: () => _accept(row['id'] as String),
                     icon: const Icon(Icons.check),
@@ -338,7 +367,20 @@ class _FriendsScreenState extends State<FriendsScreen>
           Text('Demandes envoyées', style: Theme.of(context).textTheme.titleMedium),
           ..._outgoing.map((row) {
             final user = Map<String, dynamic>.from(row['user'] as Map? ?? {});
-            return FriendTile(user: user, trailing: const Text('En attente'));
+            return FriendTile(
+              user: user,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Signaler',
+                    onPressed: () => _report(user),
+                    icon: const Icon(Icons.flag_outlined),
+                  ),
+                  const Text('En attente'),
+                ],
+              ),
+            );
           }),
         ],
         const SizedBox(height: 16),
@@ -351,6 +393,7 @@ class _FriendsScreenState extends State<FriendsScreen>
         ..._friends.map(
           (user) => FriendTile(
             user: user,
+            onReport: () => _report(user),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -361,6 +404,11 @@ class _FriendsScreenState extends State<FriendsScreen>
                     friend: user,
                   ),
                   icon: const Icon(Icons.mail_outline),
+                ),
+                IconButton(
+                  tooltip: 'Signaler',
+                  onPressed: () => _report(user),
+                  icon: const Icon(Icons.flag_outlined),
                 ),
                 IconButton(
                   tooltip: 'Message',

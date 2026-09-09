@@ -17,6 +17,8 @@ class ChatThread extends StatelessWidget {
     this.cannotSendHint,
     this.canDelete,
     this.onDelete,
+    this.onReportMessage,
+    this.onReportUser,
   });
 
   final List<Map<String, dynamic>> messages;
@@ -31,6 +33,8 @@ class ChatThread extends StatelessWidget {
   final String? cannotSendHint;
   final bool Function(Map<String, dynamic> message)? canDelete;
   final ValueChanged<Map<String, dynamic>>? onDelete;
+  final ValueChanged<Map<String, dynamic>>? onReportMessage;
+  final ValueChanged<Map<String, dynamic>>? onReportUser;
 
   @override
   Widget build(BuildContext context) {
@@ -85,9 +89,12 @@ class ChatThread extends StatelessWidget {
               maxWidth: MediaQuery.of(context).size.width * 0.78,
             ),
             child: InkWell(
-              onLongPress: deletable && onDelete != null
-                  ? () => onDelete!(m)
-                  : null,
+              onLongPress: () => _showActions(
+                context,
+                message: m,
+                mine: mine,
+                deletable: deletable,
+              ),
               borderRadius: BorderRadius.circular(14),
               child: Container(
                 margin: const EdgeInsets.only(bottom: 10),
@@ -104,15 +111,38 @@ class ChatThread extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (!mine)
-                      Text(
-                        staffDisplayPseudo(
-                          m['authorPseudo']?.toString(),
-                          m['authorRole']?.toString(),
-                        ),
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: FutBoliaColors.pitch,
-                              fontWeight: FontWeight.w700,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              staffDisplayPseudo(
+                                m['authorPseudo']?.toString(),
+                                m['authorRole']?.toString(),
+                              ),
+                              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: FutBoliaColors.pitch,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                             ),
+                          ),
+                          if (onReportMessage != null || onReportUser != null)
+                            IconButton(
+                              tooltip: 'Signaler',
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                              onPressed: () => _showActions(
+                                context,
+                                message: m,
+                                mine: mine,
+                                deletable: false,
+                              ),
+                              icon: const Icon(Icons.flag_outlined, size: 18),
+                            ),
+                        ],
                       ),
                     if (!mine) const SizedBox(height: 4),
                     Text(
@@ -128,6 +158,68 @@ class ChatThread extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _showActions(
+    BuildContext context, {
+    required Map<String, dynamic> message,
+    required bool mine,
+    required bool deletable,
+  }) {
+    final authorId = message['authorId']?.toString();
+    final canReportMessage = !mine && onReportMessage != null;
+    final canReportUser =
+        !mine && onReportUser != null && authorId != null && authorId.isNotEmpty;
+    final canRemove = deletable && onDelete != null;
+    if (!canReportMessage && !canReportUser && !canRemove) return;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Actions'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (canReportMessage)
+              ListTile(
+                leading: const Icon(Icons.outlined_flag),
+                title: const Text('Signaler le message'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onReportMessage!(message);
+                },
+              ),
+            if (canReportUser)
+              ListTile(
+                leading: const Icon(Icons.person_off_outlined),
+                title: const Text('Signaler le joueur'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onReportUser!(message);
+                },
+              ),
+            if (canRemove)
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_outline,
+                  color: FutBoliaColors.danger,
+                ),
+                title: const Text('Supprimer'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onDelete!(message);
+                },
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+        ],
+      ),
     );
   }
 

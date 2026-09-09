@@ -7,8 +7,9 @@ import {
 } from '@nestjs/common';
 import { DataSource, IsNull, LessThan, Not, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
-import { toPlatformRole } from '../../common/enums';
+import { isStaff, toPlatformRole } from '../../common/enums';
 import { FriendsService } from '../friends/friends.service';
+import { User } from '../users/entities/user.entity';
 import { Conversation } from './entities/conversation.entity';
 import { DirectMessage } from './entities/direct-message.entity';
 import { SendDirectMessageDto } from './dto/send-message.dto';
@@ -35,6 +36,21 @@ export class ConversationsService {
     return this.db.getRepository(DirectMessage);
   }
 
+  private get users(): Repository<User> {
+    return this.db.getRepository(User);
+  }
+
+  private async actorIsStaff(userId: string) {
+    const user = await this.users.findOne({ where: { id: userId } });
+    return isStaff(user?.globalRole);
+  }
+
+  private async canMessage(userId: string, otherId: string) {
+    if (await this.actorIsStaff(userId)) return true;
+    if (await this.actorIsStaff(otherId)) return true;
+    return this.friends.areFriends(userId, otherId);
+  }
+
   async list(userId: string) {
     const rows = await this.conversations.find({
       where: [{ user1Id: userId }, { user2Id: userId }],
@@ -59,7 +75,10 @@ export class ConversationsService {
           },
         });
         const friend = row.user1Id === userId ? row.user2 : row.user1;
-        const canSend = await this.friends.areFriends(userId, friend.id);
+        if (!friend) {
+          return null;
+        }
+        const canSend = await this.canMessage(userId, friend.id);
         return {
           id: row.id,
           friend: this.toFriend(friend),
@@ -78,11 +97,14 @@ export class ConversationsService {
       }),
     );
 
-    items.sort(
+    const present = items.filter(
+      (item): item is NonNullable<typeof item> => item != null,
+    );
+    present.sort(
       (a, b) =>
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
-    return items;
+    return present;
   }
 
   async unreadCount(userId: string) {
@@ -108,7 +130,11 @@ export class ConversationsService {
     if (userId === friendId) {
       throw new ForbiddenException('Conversation impossible avec soi-même');
     }
-    await this.friends.assertFriends(userId, friendId);
+    const staff = await this.actorIsStaff(userId);
+    const otherIsStaff = await this.actorIsStaff(friendId);
+    if (!staff && !otherIsStaff) {
+      await this.friends.assertFriends(userId, friendId);
+    }
     const [user1Id, user2Id] = this.orderedPair(userId, friendId);
     let conversation = await this.conversations.findOne({
       where: { user1Id, user2Id },
@@ -158,7 +184,7 @@ export class ConversationsService {
       order: { createdAt: 'DESC' },
       take: limit,
     });
-    const canSend = await this.friends.areFriends(
+    const canSend = await this.canMessage(
       userId,
       this.otherUserId(conversation, userId),
     );
@@ -174,10 +200,10 @@ export class ConversationsService {
     dto: SendDirectMessageDto,
   ) {
     const conversation = await this.requireMember(conversationId, userId);
-    await this.friends.assertFriends(
-      userId,
-      this.otherUserId(conversation, userId),
-    );
+    const otherId = this.otherUserId(conversation, userId);
+    if (!(await this.canMessage(userId, otherId))) {
+      await this.friends.assertFriends(userId, otherId);
+    }
     const saved = await this.messages.save(
       this.messages.create({
         conversationId,
@@ -268,11 +294,11 @@ export class ConversationsService {
     };
   }
 
-  private toFriend(user: Conversation['user1']) {
+  private toFriend(user: Conversation['user1'] | undefined) {
     return {
-      id: user.id,
-      pseudo: user.profile?.pseudo ?? '',
-      role: toPlatformRole(user.globalRole),
+      id: user?.id ?? '',
+      pseudo: user?.profile?.pseudo ?? '',
+      role: toPlatformRole(user?.globalRole),
     };
   }
 

@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../core/network/api_client.dart';
 import '../../design_system/tokens/colors.dart';
 import '../auth/application/auth_session.dart';
+import '../moderation/report_sheet.dart';
+import '../profile/presentation/public_profile_screen.dart';
 import 'conversation_screen.dart';
 import 'widgets/conversation_tile.dart';
 
@@ -53,11 +55,42 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
         builder: (_) => ConversationScreen(
           conversationId: conversation['id'] as String,
           friendName: conversationFriendName(conversation),
+          friendId: userIdOf(conversation),
           canSend: conversation['canSend'] != false,
         ),
       ),
     );
     await _reload();
+  }
+
+  Future<void> _conversationActions(Map<String, dynamic> conversation) async {
+    final id = userIdOf(conversation);
+    final name = conversationFriendName(conversation);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.outlined_flag),
+              title: const Text('Signaler le joueur'),
+              onTap: () {
+                Navigator.pop(ctx);
+                if (id == null) return;
+                showReportSheet(
+                  context,
+                  type: 'user',
+                  targetId: id,
+                  title: 'Signaler $name',
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -87,6 +120,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
             (c) => ConversationTile(
               conversation: c,
               onTap: () => _open(c),
+              onLongPress: () => _conversationActions(c),
             ),
           ),
         ],

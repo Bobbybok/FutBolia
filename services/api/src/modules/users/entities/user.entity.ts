@@ -27,6 +27,9 @@ export class User {
   @Column({ type: 'varchar', default: UserStatus.ACTIVE })
   status!: UserStatus;
 
+  @Column({ name: 'suspended_until', type: 'timestamptz', nullable: true })
+  suspendedUntil!: Date | null;
+
   @Column({ name: 'global_role', type: 'varchar', default: GlobalRole.USER })
   globalRole!: GlobalRole;
 

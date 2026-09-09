@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import {
   AuthUser,
@@ -11,6 +11,11 @@ import { CreateReportDto } from './dto/admin.dto';
 @UseGuards(JwtAuthGuard)
 export class ReportsController {
   constructor(private readonly admin: AdminService) {}
+
+  @Get('reasons')
+  reasons() {
+    return this.admin.listReportReasons();
+  }
 
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateReportDto) {

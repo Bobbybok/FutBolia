@@ -2,17 +2,24 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsEmail,
   IsEnum,
+  IsIn,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
+  Max,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import {
   AdminPermissionType,
+  ReportReasonCode,
   ReportStatus,
   ReportType,
   TeamStatus,
@@ -111,6 +118,34 @@ export class ForceTeamStatusDto {
 export class ResolveReportDto {
   @IsEnum(ReportStatus)
   status!: ReportStatus;
+
+  @IsOptional()
+  @IsIn(['none', 'timeout', 'ban'])
+  action?: 'none' | 'timeout' | 'ban';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(90 * 24 * 60)
+  timeoutMinutes?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  deleteMessage?: boolean;
+}
+
+export class TimeoutUserDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(90 * 24 * 60)
+  minutes!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  reason?: string;
 }
 
 export class CreateReportDto {
@@ -120,7 +155,11 @@ export class CreateReportDto {
   @IsUUID()
   targetId!: string;
 
+  @IsEnum(ReportReasonCode)
+  reasonCode!: ReportReasonCode;
+
+  @IsOptional()
   @IsString()
-  @MinLength(3)
-  reason!: string;
+  @MaxLength(500)
+  comment?: string;
 }

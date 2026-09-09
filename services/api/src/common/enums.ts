@@ -27,14 +27,88 @@ export const ALL_ADMIN_PERMISSIONS = Object.values(AdminPermissionType);
 
 export enum ReportType {
   MESSAGE = 'message',
+  DIRECT_MESSAGE = 'direct_message',
   USER = 'user',
   TOURNAMENT = 'tournament',
+}
+
+export enum ReportReasonCode {
+  SPAM = 'spam',
+  HARASSMENT = 'harassment',
+  HATE = 'hate',
+  INAPPROPRIATE = 'inappropriate',
+  IMPERSONATION = 'impersonation',
+  FAKE_PROFILE = 'fake_profile',
+  OTHER = 'other',
+}
+
+export const REPORT_REASON_LABELS: Record<ReportReasonCode, string> = {
+  [ReportReasonCode.SPAM]: 'Spam / publicité',
+  [ReportReasonCode.HARASSMENT]: 'Harcèlement',
+  [ReportReasonCode.HATE]: 'Insultes / propos haineux',
+  [ReportReasonCode.INAPPROPRIATE]: 'Contenu inapproprié',
+  [ReportReasonCode.IMPERSONATION]: 'Usurpation d’identité',
+  [ReportReasonCode.FAKE_PROFILE]: 'Faux profil',
+  [ReportReasonCode.OTHER]: 'Autre',
+};
+
+const MESSAGE_REPORT_REASONS: ReportReasonCode[] = [
+  ReportReasonCode.SPAM,
+  ReportReasonCode.HARASSMENT,
+  ReportReasonCode.HATE,
+  ReportReasonCode.INAPPROPRIATE,
+  ReportReasonCode.IMPERSONATION,
+  ReportReasonCode.OTHER,
+];
+
+const USER_REPORT_REASONS: ReportReasonCode[] = [
+  ReportReasonCode.HARASSMENT,
+  ReportReasonCode.HATE,
+  ReportReasonCode.FAKE_PROFILE,
+  ReportReasonCode.IMPERSONATION,
+  ReportReasonCode.INAPPROPRIATE,
+  ReportReasonCode.SPAM,
+  ReportReasonCode.OTHER,
+];
+
+export function reportReasonsFor(type: ReportType): ReportReasonCode[] {
+  if (type === ReportType.USER) return USER_REPORT_REASONS;
+  return MESSAGE_REPORT_REASONS;
+}
+
+export function reportReasonLabel(
+  code: ReportReasonCode,
+  type?: ReportType,
+): string {
+  if (
+    code === ReportReasonCode.INAPPROPRIATE &&
+    type === ReportType.USER
+  ) {
+    return 'Pseudo, photo ou bio inapproprié(e)';
+  }
+  return REPORT_REASON_LABELS[code];
+}
+
+export function reportTypeLabel(type: string): string {
+  switch (type) {
+    case ReportType.MESSAGE:
+      return 'Message (tournoi)';
+    case ReportType.DIRECT_MESSAGE:
+      return 'Message privé';
+    case ReportType.USER:
+      return 'Profil';
+    case ReportType.TOURNAMENT:
+      return 'Tournoi';
+    default:
+      return type;
+  }
 }
 
 export enum ReportStatus {
   OPEN = 'open',
   REVIEWED = 'reviewed',
   DISMISSED = 'dismissed',
+  CLOSED = 'closed',
 }
 
 export type PlatformRole = 'user' | 'moderator' | 'admin';

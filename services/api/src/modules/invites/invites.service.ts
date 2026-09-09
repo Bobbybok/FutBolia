@@ -276,18 +276,18 @@ export class InvitesService {
   }
 
   private async toPublic(invite: EventInvite) {
-    if (!invite.inviter) {
-      invite.inviter = (await this.users.findOne({
+    const inviter =
+      invite.inviter ??
+      (await this.users.findOne({
         where: { id: invite.inviterId },
         relations: { profile: true },
-      }))!;
-    }
-    if (!invite.invitee) {
-      invite.invitee = (await this.users.findOne({
+      }));
+    const invitee =
+      invite.invitee ??
+      (await this.users.findOne({
         where: { id: invite.inviteeId },
         relations: { profile: true },
-      }))!;
-    }
+      }));
 
     const targetLabel = await this.resolveTargetLabel(
       invite.targetType,
@@ -303,14 +303,14 @@ export class InvitesService {
       createdAt: invite.createdAt,
       respondedAt: invite.respondedAt,
       inviter: {
-        id: invite.inviter.id,
-        pseudo: invite.inviter.profile?.pseudo ?? '',
-        role: toPlatformRole(invite.inviter.globalRole),
+        id: inviter?.id ?? invite.inviterId,
+        pseudo: inviter?.profile?.pseudo ?? '',
+        role: toPlatformRole(inviter?.globalRole),
       },
       invitee: {
-        id: invite.invitee.id,
-        pseudo: invite.invitee.profile?.pseudo ?? '',
-        role: toPlatformRole(invite.invitee.globalRole),
+        id: invitee?.id ?? invite.inviteeId,
+        pseudo: invitee?.profile?.pseudo ?? '',
+        role: toPlatformRole(invitee?.globalRole),
       },
     };
   }

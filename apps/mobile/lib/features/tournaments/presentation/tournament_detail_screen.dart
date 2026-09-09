@@ -12,6 +12,8 @@ import '../../teams/presentation/teams_section.dart';
 import '../../mercato/presentation/mercato_screen.dart';
 import '../../matches/presentation/matches_screen.dart';
 import '../../chat/presentation/tournament_chat_screen.dart';
+import '../../moderation/report_sheet.dart';
+import '../../profile/presentation/public_profile_screen.dart';
 
 class TournamentDetailScreen extends StatefulWidget {
   const TournamentDetailScreen({super.key, required this.tournamentId});
@@ -301,6 +303,20 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
                 contentPadding: EdgeInsets.zero,
                 title: Text(staffPseudoOf(m['user'])),
                 subtitle: Text(FrLabels.memberRole(m['role']?.toString())),
+                trailing: IconButton(
+                  tooltip: 'Signaler',
+                  onPressed: () {
+                    final id = userIdOf(m);
+                    if (id == null) return;
+                    showReportSheet(
+                      context,
+                      type: 'user',
+                      targetId: id,
+                      title: 'Signaler ${staffPseudoOf(m['user'])}',
+                    );
+                  },
+                  icon: const Icon(Icons.flag_outlined),
+                ),
               ),
             ),
           if (t['myRole'] == 'organizer') ...[

@@ -7,10 +7,12 @@ class ConversationTile extends StatelessWidget {
     super.key,
     required this.conversation,
     required this.onTap,
+    this.onLongPress,
   });
 
   final Map<String, dynamic> conversation;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +25,7 @@ class ConversationTile extends StatelessWidget {
 
     return ListTile(
       onTap: onTap,
+      onLongPress: onLongPress,
       title: Text(staffPseudoOf(friend)),
       subtitle: Text(
         preview,

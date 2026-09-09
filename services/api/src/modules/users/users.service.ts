@@ -71,7 +71,7 @@ export class UsersService {
       where: { id: userId },
       relations: { profile: true },
     });
-    if (!user?.profile) {
+    if (!user?.profile || user.deletedAt) {
       throw new NotFoundException('Utilisateur introuvable');
     }
 

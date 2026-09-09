@@ -6,19 +6,27 @@ class FriendTile extends StatelessWidget {
   const FriendTile({
     super.key,
     required this.user,
+    this.onTap,
+    this.onLongPress,
     this.onMessage,
     this.onUnfriend,
+    this.onReport,
     this.trailing,
   });
 
   final Map<String, dynamic> user;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final VoidCallback? onMessage;
   final VoidCallback? onUnfriend;
+  final VoidCallback? onReport;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      onTap: onTap,
+      onLongPress: onLongPress,
       title: Text(staffPseudoOf(user)),
       subtitle: user['city'] == null || user['city'].toString().isEmpty
           ? null
@@ -27,6 +35,12 @@ class FriendTile extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (onReport != null)
+                IconButton(
+                  tooltip: 'Signaler',
+                  onPressed: onReport,
+                  icon: const Icon(Icons.flag_outlined),
+                ),
               if (onMessage != null)
                 IconButton(
                   tooltip: 'Message',

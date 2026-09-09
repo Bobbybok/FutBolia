@@ -28,6 +28,7 @@ export type PublicUser = {
   email: string;
   emailVerified: boolean;
   status: UserStatus;
+  suspendedUntil?: Date | null;
   globalRole: string;
   role: PlatformRole;
   permissions: string[];
@@ -143,11 +144,19 @@ export class AuthService {
     if (!user || user.status === UserStatus.DELETED) {
       throw new UnauthorizedException('Identifiants invalides');
     }
-    if (
-      user.status === UserStatus.BANNED ||
-      user.status === UserStatus.SUSPENDED
-    ) {
-      throw new ForbiddenException('Compte non autorisé à se connecter');
+    await this.liftExpiredTimeout(user);
+    if (user.status === UserStatus.BANNED) {
+      throw new ForbiddenException('Compte banni');
+    }
+    if (user.status === UserStatus.SUSPENDED) {
+      const until = user.suspendedUntil
+        ? user.suspendedUntil.toISOString()
+        : null;
+      throw new ForbiddenException(
+        until
+          ? `Compte en time-out jusqu’au ${until}`
+          : 'Compte temporairement suspendu',
+      );
     }
 
     const valid = await argon2.verify(user.passwordHash, dto.password);
@@ -179,7 +188,11 @@ export class AuthService {
     }
 
     const user = await this.users.findOne({ where: { id: stored.userId } });
-    if (!user || user.status !== UserStatus.ACTIVE) {
+    if (!user || user.status === UserStatus.DELETED) {
+      throw new UnauthorizedException('Jeton de rafraîchissement invalide');
+    }
+    await this.liftExpiredTimeout(user);
+    if (user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException('Jeton de rafraîchissement invalide');
     }
 
@@ -370,6 +383,18 @@ export class AuthService {
     return { success: true };
   }
 
+  async liftExpiredTimeout(user: User) {
+    if (
+      user.status === UserStatus.SUSPENDED &&
+      user.suspendedUntil &&
+      user.suspendedUntil.getTime() <= Date.now()
+    ) {
+      user.status = UserStatus.ACTIVE;
+      user.suspendedUntil = null;
+      await this.users.save(user);
+    }
+  }
+
   async toPublicUser(userId: string): Promise<PublicUser> {
     const user = await this.users.findOne({
       where: { id: userId },
@@ -389,6 +414,7 @@ export class AuthService {
       email: user.email,
       emailVerified: Boolean(user.emailVerifiedAt),
       status: user.status,
+      suspendedUntil: user.suspendedUntil,
       globalRole: user.globalRole,
       role,
       permissions,

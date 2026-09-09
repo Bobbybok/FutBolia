@@ -127,6 +127,36 @@ class FrLabels {
     }
   }
 
+  static String reportType(String? value) {
+    switch (value) {
+      case 'message':
+        return 'Message (tournoi)';
+      case 'direct_message':
+        return 'Message privé';
+      case 'user':
+        return 'Profil';
+      case 'tournament':
+        return 'Tournoi';
+      default:
+        return value ?? '';
+    }
+  }
+
+  static String reportStatus(String? value) {
+    switch (value) {
+      case 'open':
+        return 'À traiter';
+      case 'reviewed':
+        return 'Traité';
+      case 'closed':
+        return 'Clôturé';
+      case 'dismissed':
+        return 'Clôturé (rejeté)';
+      default:
+        return value ?? '';
+    }
+  }
+
   static String apiMessage(String message) {
     // Si l’API renvoie encore un message anglais connu, on le traduit côté app.
     const map = <String, String>{
@@ -137,6 +167,8 @@ class FrLabels {
       'le code doit contenir exactement 6 chiffres':
           'Le code doit contenir exactement 6 chiffres',
       'Jeton invalide ou expiré': 'Code invalide ou expiré',
+      'Internal server error': 'Erreur interne du serveur',
+      'Internal Server Error': 'Erreur interne du serveur',
     };
     return map[message] ?? message;
   }

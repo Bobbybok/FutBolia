@@ -16,7 +16,12 @@ import {
   GlobalRole,
   isPlatformAdmin,
   MatchStatus,
+  ReportReasonCode,
   ReportStatus,
+  ReportType,
+  reportReasonLabel,
+  reportReasonsFor,
+  reportTypeLabel,
   TeamStatus,
   toPlatformRole,
   TournamentMemberRole,
@@ -33,6 +38,7 @@ import { TournamentMember } from '../tournaments/entities/tournament-member.enti
 import { Team } from '../teams/entities/team.entity';
 import { Match } from '../matches/entities/match.entity';
 import { TournamentChatMessage } from '../chat/entities/tournament-chat-message.entity';
+import { DirectMessage } from '../private-chat/entities/direct-message.entity';
 import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { AuthService } from '../auth/auth.service';
 import { AuthUser } from '../../common/decorators/current-user.decorator';
@@ -43,6 +49,7 @@ import {
   PatchAdminUserDto,
   PatchTournamentDto,
   ResolveReportDto,
+  TimeoutUserDto,
 } from './dto/admin.dto';
 
 @Injectable()
@@ -97,6 +104,10 @@ export class AdminService {
 
   private get messages(): Repository<TournamentChatMessage> {
     return this.db.getRepository(TournamentChatMessage);
+  }
+
+  private get directMessages(): Repository<DirectMessage> {
+    return this.db.getRepository(DirectMessage);
   }
 
   private get refreshTokens(): Repository<RefreshToken> {
@@ -290,6 +301,7 @@ export class AdminService {
       await this.protectLastManageAdmins(userId, [], actor.id);
     }
     user.status = UserStatus.BANNED;
+    user.suspendedUntil = null;
     await this.users.save(user);
     await this.auth.invalidateSessions(userId);
     await this.audit(actor.id, 'ban_user', userId, { reason: dto.reason ?? null });
@@ -299,8 +311,34 @@ export class AdminService {
   async unbanUser(actor: AuthUser, userId: string) {
     const user = await this.requireUser(userId);
     user.status = UserStatus.ACTIVE;
+    user.suspendedUntil = null;
     await this.users.save(user);
     await this.audit(actor.id, 'unban_user', userId, {});
+    return this.getUser(userId);
+  }
+
+  async timeoutUser(actor: AuthUser, userId: string, dto: TimeoutUserDto) {
+    this.assertNotSelf(actor.id, userId);
+    const user = await this.requireUser(userId);
+    if (isPlatformAdmin(user.globalRole)) {
+      throw new ForbiddenException('Impossible de mettre un admin en time-out');
+    }
+    if (
+      toPlatformRole(user.globalRole) === 'moderator' &&
+      toPlatformRole(actor.globalRole) !== 'admin'
+    ) {
+      throw new ForbiddenException('Seul un admin peut time-out un modo');
+    }
+    const until = new Date(Date.now() + dto.minutes * 60 * 1000);
+    user.status = UserStatus.SUSPENDED;
+    user.suspendedUntil = until;
+    await this.users.save(user);
+    await this.auth.invalidateSessions(userId);
+    await this.audit(actor.id, 'timeout_user', userId, {
+      minutes: dto.minutes,
+      until: until.toISOString(),
+      reason: dto.reason ?? null,
+    });
     return this.getUser(userId);
   }
 
@@ -568,13 +606,66 @@ export class AdminService {
     }));
   }
 
+  listReportReasons() {
+    const toOptions = (type: ReportType) =>
+      reportReasonsFor(type).map((code) => ({
+        code,
+        label: reportReasonLabel(code, type),
+      }));
+    return {
+      message: toOptions(ReportType.MESSAGE),
+      direct_message: toOptions(ReportType.DIRECT_MESSAGE),
+      user: toOptions(ReportType.USER),
+      tournament: toOptions(ReportType.TOURNAMENT),
+    };
+  }
+
   async createReport(reporterId: string, dto: CreateReportDto) {
+    const comment = dto.comment?.trim() || null;
+    if (dto.reasonCode === ReportReasonCode.OTHER && !comment) {
+      throw new BadRequestException(
+        'Ajoute un commentaire pour le motif « Autre »',
+      );
+    }
+    if (
+      dto.reasonCode === ReportReasonCode.FAKE_PROFILE &&
+      dto.type !== ReportType.USER
+    ) {
+      throw new BadRequestException(
+        'Ce motif s’applique uniquement à un profil',
+      );
+    }
+
+    const allowed = reportReasonsFor(dto.type);
+    if (!allowed.includes(dto.reasonCode)) {
+      throw new BadRequestException('Motif de signalement invalide');
+    }
+
+    await this.assertReportTarget(reporterId, dto.type, dto.targetId);
+
+    const duplicate = await this.reports.findOne({
+      where: {
+        reporterId,
+        type: dto.type,
+        targetId: dto.targetId,
+        status: ReportStatus.OPEN,
+      },
+    });
+    if (duplicate) {
+      throw new ConflictException('Tu as déjà signalé cet élément');
+    }
+
+    const label = reportReasonLabel(dto.reasonCode, dto.type);
+    const reason = comment ? `${label} — ${comment}` : label;
+
     const saved = await this.reports.save(
       this.reports.create({
         type: dto.type,
         targetId: dto.targetId,
         reporterId,
-        reason: dto.reason.trim(),
+        reason,
+        reasonCode: dto.reasonCode,
+        comment,
         status: ReportStatus.OPEN,
       }),
     );
@@ -587,39 +678,299 @@ export class AdminService {
       order: { createdAt: 'DESC' },
       take: 100,
     });
-    return rows.map((r) => ({
-      id: r.id,
-      type: r.type,
-      targetId: r.targetId,
-      reason: r.reason,
-      status: r.status,
-      createdAt: r.createdAt,
-      reviewedAt: r.reviewedAt,
-      reporter: {
-        id: r.reporterId,
-        pseudo: r.reporter?.profile?.pseudo ?? '',
-        role: toPlatformRole(r.reporter?.globalRole),
-      },
-    }));
+
+    const messageIds = rows
+      .filter((r) => r.type === ReportType.MESSAGE)
+      .map((r) => r.targetId);
+    const dmIds = rows
+      .filter((r) => r.type === ReportType.DIRECT_MESSAGE)
+      .map((r) => r.targetId);
+    const userIds = rows
+      .filter((r) => r.type === ReportType.USER)
+      .map((r) => r.targetId);
+
+    const [messages, dms, users] = await Promise.all([
+      messageIds.length
+        ? this.messages.find({
+            where: { id: In(messageIds) },
+            relations: { author: { profile: true } },
+          })
+        : [],
+      dmIds.length
+        ? this.directMessages.find({
+            where: { id: In(dmIds) },
+            relations: { sender: { profile: true } },
+          })
+        : [],
+      userIds.length
+        ? this.users.find({
+            where: { id: In(userIds) },
+            relations: { profile: true },
+          })
+        : [],
+    ]);
+
+    const messageMap = new Map(messages.map((m) => [m.id, m]));
+    const dmMap = new Map(dms.map((m) => [m.id, m]));
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    return rows.map((r) => {
+      let target: {
+        userId?: string;
+        pseudo?: string;
+        body?: string;
+        status?: string;
+        suspendedUntil?: Date | null;
+      } = {};
+      if (r.type === ReportType.MESSAGE) {
+        const m = messageMap.get(r.targetId);
+        target = {
+          userId: m?.authorId,
+          pseudo: m?.author?.profile?.pseudo ?? '',
+          body: m?.body,
+          status: m?.author?.status,
+          suspendedUntil: m?.author?.suspendedUntil ?? null,
+        };
+      } else if (r.type === ReportType.DIRECT_MESSAGE) {
+        const m = dmMap.get(r.targetId);
+        target = {
+          userId: m?.senderId,
+          pseudo: m?.sender?.profile?.pseudo ?? '',
+          body: m?.content,
+          status: m?.sender?.status,
+          suspendedUntil: m?.sender?.suspendedUntil ?? null,
+        };
+      } else if (r.type === ReportType.USER) {
+        const u = userMap.get(r.targetId);
+        target = {
+          userId: u?.id,
+          pseudo: u?.profile?.pseudo ?? '',
+          status: u?.status,
+          suspendedUntil: u?.suspendedUntil ?? null,
+        };
+      }
+
+      return {
+        id: r.id,
+        type: r.type,
+        typeLabel: reportTypeLabel(r.type),
+        targetId: r.targetId,
+        reason: r.reason,
+        reasonCode: r.reasonCode,
+        comment: r.comment,
+        status: r.status,
+        createdAt: r.createdAt,
+        reviewedAt: r.reviewedAt,
+        reporter: {
+          id: r.reporterId,
+          pseudo: r.reporter?.profile?.pseudo ?? '',
+          role: toPlatformRole(r.reporter?.globalRole),
+        },
+        target,
+      };
+    });
+  }
+
+  private async assertReportTarget(
+    reporterId: string,
+    type: ReportType,
+    targetId: string,
+  ) {
+    if (type === ReportType.USER) {
+      if (targetId === reporterId) {
+        throw new BadRequestException(
+          'Tu ne peux pas signaler ton propre profil',
+        );
+      }
+      const user = await this.users.findOne({ where: { id: targetId } });
+      if (!user || user.deletedAt) {
+        throw new NotFoundException('Profil introuvable');
+      }
+      return;
+    }
+
+    if (type === ReportType.MESSAGE) {
+      const message = await this.messages.findOne({
+        where: { id: targetId },
+      });
+      if (!message) {
+        throw new NotFoundException('Message introuvable');
+      }
+      if (message.authorId === reporterId) {
+        throw new BadRequestException(
+          'Tu ne peux pas signaler ton propre message',
+        );
+      }
+      return;
+    }
+
+    if (type === ReportType.DIRECT_MESSAGE) {
+      const message = await this.directMessages.findOne({
+        where: { id: targetId },
+        relations: { conversation: true },
+      });
+      if (!message) {
+        throw new NotFoundException('Message introuvable');
+      }
+      if (message.senderId === reporterId) {
+        throw new BadRequestException(
+          'Tu ne peux pas signaler ton propre message',
+        );
+      }
+      const conv = message.conversation;
+      if (conv.user1Id !== reporterId && conv.user2Id !== reporterId) {
+        throw new ForbiddenException('Tu n’as pas accès à cette conversation');
+      }
+      return;
+    }
+
+    if (type === ReportType.TOURNAMENT) {
+      const tournament = await this.tournaments.findOne({
+        where: { id: targetId },
+      });
+      if (!tournament) {
+        throw new NotFoundException('Tournoi introuvable');
+      }
+    }
   }
 
   async resolveReport(actor: AuthUser, reportId: string, dto: ResolveReportDto) {
-    if (
-      dto.status !== ReportStatus.REVIEWED &&
-      dto.status !== ReportStatus.DISMISSED
-    ) {
-      throw new BadRequestException('Statut de revue invalide');
-    }
     const report = await this.reports.findOne({ where: { id: reportId } });
     if (!report) {
       throw new NotFoundException('Signalement introuvable');
     }
+
+    const closed =
+      report.status === ReportStatus.CLOSED ||
+      report.status === ReportStatus.DISMISSED;
+
+    if (dto.status === ReportStatus.OPEN) {
+      if (report.status === ReportStatus.OPEN) {
+        throw new BadRequestException('Ce signalement est déjà à traiter');
+      }
+      report.status = ReportStatus.OPEN;
+      report.reviewedById = null;
+      report.reviewedAt = null;
+      await this.reports.save(report);
+      await this.audit(actor.id, 'reopen_report', reportId, {});
+      return { success: true, status: report.status };
+    }
+
+    if (dto.status === ReportStatus.REVIEWED) {
+      if (report.status === ReportStatus.REVIEWED) {
+        throw new BadRequestException('Ce signalement est déjà traité');
+      }
+      if (report.status === ReportStatus.OPEN) {
+        await this.applyReportActions(actor, report, dto);
+      }
+      report.status = ReportStatus.REVIEWED;
+      report.reviewedById = actor.id;
+      report.reviewedAt = new Date();
+      await this.reports.save(report);
+      await this.audit(actor.id, closed ? 'unclose_report' : 'review_report', reportId, {
+        action: dto.action ?? 'none',
+        timeoutMinutes: dto.timeoutMinutes ?? null,
+        deleteMessage: Boolean(dto.deleteMessage),
+      });
+      return { success: true, status: report.status };
+    }
+
+    if (
+      dto.status !== ReportStatus.CLOSED &&
+      dto.status !== ReportStatus.DISMISSED
+    ) {
+      throw new BadRequestException('Statut de revue invalide');
+    }
+    if (closed) {
+      throw new BadRequestException('Ce signalement est déjà clôturé');
+    }
+
     report.status = dto.status;
     report.reviewedById = actor.id;
     report.reviewedAt = new Date();
     await this.reports.save(report);
-    await this.audit(actor.id, 'resolve_report', reportId, { status: dto.status });
+    await this.audit(actor.id, 'close_report', reportId, {
+      status: dto.status,
+    });
+    return { success: true, status: report.status };
+  }
+
+  private async applyReportActions(
+    actor: AuthUser,
+    report: Report,
+    dto: ResolveReportDto,
+  ) {
+    const targetUserId = await this.reportedUserId(report);
+    if (dto.action === 'timeout') {
+      if (!dto.timeoutMinutes) {
+        throw new BadRequestException('Indique la durée du time-out');
+      }
+      if (!targetUserId) {
+        throw new BadRequestException('Impossible d’identifier le joueur');
+      }
+      await this.timeoutUser(actor, targetUserId, {
+        minutes: dto.timeoutMinutes,
+        reason: report.reason,
+      });
+    } else if (dto.action === 'ban') {
+      if (!targetUserId) {
+        throw new BadRequestException('Impossible d’identifier le joueur');
+      }
+      await this.banUser(actor, targetUserId, { reason: report.reason });
+    }
+    if (dto.deleteMessage) {
+      await this.deleteReportedMessage(actor, report);
+    }
+  }
+
+  async deleteReport(actor: AuthUser, reportId: string) {
+    const report = await this.reports.findOne({ where: { id: reportId } });
+    if (!report) {
+      throw new NotFoundException('Signalement introuvable');
+    }
+    await this.reports.remove(report);
+    await this.audit(actor.id, 'delete_report', reportId, {
+      type: report.type,
+      targetId: report.targetId,
+    });
     return { success: true };
+  }
+
+  private async reportedUserId(report: Report): Promise<string | null> {
+    if (report.type === ReportType.USER) return report.targetId;
+    if (report.type === ReportType.MESSAGE) {
+      const message = await this.messages.findOne({
+        where: { id: report.targetId },
+      });
+      return message?.authorId ?? null;
+    }
+    if (report.type === ReportType.DIRECT_MESSAGE) {
+      const message = await this.directMessages.findOne({
+        where: { id: report.targetId },
+      });
+      return message?.senderId ?? null;
+    }
+    return null;
+  }
+
+  private async deleteReportedMessage(actor: AuthUser, report: Report) {
+    if (report.type === ReportType.MESSAGE) {
+      try {
+        await this.deleteChatMessage(actor, report.targetId);
+      } catch {
+        // Message déjà supprimé
+      }
+      return;
+    }
+    if (report.type === ReportType.DIRECT_MESSAGE) {
+      const message = await this.directMessages.findOne({
+        where: { id: report.targetId },
+      });
+      if (!message || message.deletedAt) return;
+      message.deletedAt = new Date();
+      await this.directMessages.save(message);
+      await this.audit(actor.id, 'delete_direct_message', message.id, {});
+    }
   }
 
   async listDeletedMessages() {
@@ -756,6 +1107,7 @@ export class AdminService {
       email: user.email,
       pseudo: user.profile?.pseudo ?? '',
       status: user.status,
+      suspendedUntil: user.suspendedUntil,
       role: toPlatformRole(user.globalRole),
       permissions,
     };

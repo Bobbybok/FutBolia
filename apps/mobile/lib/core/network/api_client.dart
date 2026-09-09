@@ -230,12 +230,47 @@ class ApiClient {
   Future<Map<String, dynamic>> adminResolveReport({
     required String id,
     required String status,
+    String? action,
+    int? timeoutMinutes,
+    bool deleteMessage = false,
   }) {
-    return _patch('/admin/reports/$id', {'status': status}, auth: true);
+    return _patch('/admin/reports/$id', {
+      'status': status,
+      'action': ?action,
+      'timeoutMinutes': ?timeoutMinutes,
+      if (deleteMessage) 'deleteMessage': true,
+    }, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminDeleteReport(String id) {
+    return _delete('/admin/reports/$id');
   }
 
   Future<List<Map<String, dynamic>>> adminListDeletedMessages() {
     return _getList('/admin/messages');
+  }
+
+  Future<Map<String, dynamic>> listReportReasons() {
+    return _get('/reports/reasons', auth: true);
+  }
+
+  Future<Map<String, dynamic>> createReport({
+    required String type,
+    required String targetId,
+    required String reasonCode,
+    String? comment,
+  }) {
+    return _post('/reports', {
+      'type': type,
+      'targetId': targetId,
+      'reasonCode': reasonCode,
+      if (comment != null && comment.trim().isNotEmpty)
+        'comment': comment.trim(),
+    }, auth: true);
+  }
+
+  Future<Map<String, dynamic>> getPublicUser(String id) {
+    return _get('/users/$id', auth: true);
   }
 
   Future<Map<String, dynamic>> adminDeleteMessage(String id) {

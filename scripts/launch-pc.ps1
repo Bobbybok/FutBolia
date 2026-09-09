@@ -67,6 +67,53 @@ if ($env:FUTBOLIA_API_BASE_URL) {
   $apiBaseUrl = $renderApiDefault
 }
 
+function Test-LocalPort([int]$port) {
+  try {
+    $client = New-Object System.Net.Sockets.TcpClient
+    $client.Connect('127.0.0.1', $port)
+    $client.Close()
+    return $true
+  } catch {
+    return $false
+  }
+}
+
+if ($Local) {
+  if (Test-LocalPort 3000) {
+    Write-Host " API locale deja lancee (port 3000)"
+  } else {
+    $apiDir = Join-Path $repoRoot "services\api"
+    if (-not (Test-Path (Join-Path $apiDir "package.json"))) {
+      Write-Host "[ERREUR] API introuvable : $apiDir" -ForegroundColor Red
+      Read-Host "Entree pour fermer"
+      exit 1
+    }
+    Write-Host " Demarrage de l'API NestJS (nouvelle fenetre)..."
+    Start-Process -FilePath "powershell.exe" -WorkingDirectory $apiDir -ArgumentList @(
+      "-NoProfile",
+      "-ExecutionPolicy", "Bypass",
+      "-NoExit",
+      "-Command",
+      "npm run start:dev"
+    )
+    $ready = $false
+    for ($i = 0; $i -lt 45; $i++) {
+      Start-Sleep -Seconds 2
+      if (Test-LocalPort 3000) {
+        $ready = $true
+        break
+      }
+    }
+    if (-not $ready) {
+      Write-Host "[ERREUR] L'API n'a pas demarre sur http://localhost:3000" -ForegroundColor Red
+      Write-Host "Ouvre services/api et lance : npm run start:dev"
+      Read-Host "Entree pour fermer"
+      exit 1
+    }
+    Write-Host " API locale prete"
+  }
+}
+
 Write-Host ""
 Write-Host "========================================"
 Write-Host " FUTBOLIA - apercu PC (web)"

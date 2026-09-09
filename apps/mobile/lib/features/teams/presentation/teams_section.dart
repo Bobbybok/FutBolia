@@ -7,6 +7,7 @@ import '../../../design_system/tokens/colors.dart';
 import '../../../core/i18n/fr_labels.dart';
 import '../../auth/application/auth_session.dart';
 import '../../auth/domain/staff_label.dart';
+import '../../moderation/report_sheet.dart';
 
 class TeamsSection extends StatefulWidget {
   const TeamsSection({
@@ -572,6 +573,17 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (userId.isNotEmpty)
+            IconButton(
+              tooltip: 'Signaler',
+              onPressed: () => showReportSheet(
+                context,
+                type: 'user',
+                targetId: userId,
+                title: 'Signaler ${staffPseudoOf(map)}',
+              ),
+              icon: const Icon(Icons.flag_outlined),
+            ),
           if (isCaptain) const FbBadge(label: 'Capitaine'),
           if (canManage && !isCaptain) ...[
             IconButton(

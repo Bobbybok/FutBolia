@@ -28,6 +28,7 @@ import {
   PatchAdminUserDto,
   PatchTournamentDto,
   ResolveReportDto,
+  TimeoutUserDto,
   TransferOwnerDto,
   UpdateAdminPermissionsDto,
 } from './dto/admin.dto';
@@ -156,6 +157,16 @@ export class AdminController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.admin.unbanUser(actor, id);
+  }
+
+  @Post('users/:id/timeout')
+  @RequirePermission(AdminPermissionType.MODERATE_CONTENT)
+  timeoutUser(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: TimeoutUserDto,
+  ) {
+    return this.admin.timeoutUser(actor, id, dto);
   }
 
   @Post('users/:id/verify-email')
@@ -287,6 +298,15 @@ export class AdminController {
     @Body() dto: ResolveReportDto,
   ) {
     return this.admin.resolveReport(actor, id, dto);
+  }
+
+  @Delete('reports/:id')
+  @RequirePermission(AdminPermissionType.MODERATE_CONTENT)
+  deleteReport(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.admin.deleteReport(actor, id);
   }
 
   @Get('messages')

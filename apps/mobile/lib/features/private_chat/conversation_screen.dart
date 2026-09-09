@@ -6,17 +6,20 @@ import '../../design_system/tokens/colors.dart';
 import '../auth/application/auth_session.dart';
 import '../auth/domain/staff_label.dart';
 import '../chat/widgets/chat_thread.dart';
+import '../moderation/report_sheet.dart';
 
 class ConversationScreen extends StatefulWidget {
   const ConversationScreen({
     super.key,
     required this.conversationId,
     required this.friendName,
+    this.friendId,
     this.canSend = true,
   });
 
   final String conversationId;
   final String friendName;
+  final String? friendId;
   final bool canSend;
 
   @override
@@ -147,7 +150,22 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.friendName)),
+      appBar: AppBar(
+        title: Text(widget.friendName),
+        actions: [
+          if (widget.friendId != null)
+            IconButton(
+              tooltip: 'Signaler',
+              onPressed: () => showReportSheet(
+                context,
+                type: 'user',
+                targetId: widget.friendId!,
+                title: 'Signaler ${widget.friendName}',
+              ),
+              icon: const Icon(Icons.flag_outlined),
+            ),
+        ],
+      ),
       body: ChatThread(
         messages: _messages,
         loading: _loading,
@@ -161,6 +179,18 @@ class _ConversationScreenState extends State<ConversationScreen> {
             'Vous n’êtes plus amis. Tu peux relire l’historique, plus envoyer.',
         canDelete: (m) => m['isMine'] == true,
         onDelete: _delete,
+        onReportMessage: (m) => showReportSheet(
+          context,
+          type: 'direct_message',
+          targetId: m['id']?.toString() ?? '',
+          title: 'Signaler le message',
+        ),
+        onReportUser: (m) => showReportSheet(
+          context,
+          type: 'user',
+          targetId: m['authorId']?.toString() ?? widget.friendId ?? '',
+          title: 'Signaler ${m['authorPseudo'] ?? widget.friendName}',
+        ),
       ),
     );
   }

@@ -6,6 +6,7 @@ import '../../../design_system/components/fb_badge.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
 import '../../auth/domain/staff_label.dart';
+import '../../moderation/report_sheet.dart';
 
 class MercatoScreen extends StatefulWidget {
   const MercatoScreen({
@@ -208,14 +209,32 @@ class _MercatoScreenState extends State<MercatoScreen> {
                             subtitle: Text(
                               FrLabels.mercatoStatus(status),
                             ),
-                            trailing: canOffer
-                                ? TextButton(
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  tooltip: 'Signaler',
+                                  onPressed: playerId.isEmpty
+                                      ? null
+                                      : () => showReportSheet(
+                                            context,
+                                            type: 'user',
+                                            targetId: playerId,
+                                            title: 'Signaler ${staffPseudoOf(p)}',
+                                          ),
+                                  icon: const Icon(Icons.flag_outlined),
+                                ),
+                                if (canOffer)
+                                  TextButton(
                                     onPressed: () => _sendOffer(playerId),
                                     child: const Text('Proposer'),
                                   )
-                                : FbBadge(
+                                else
+                                  FbBadge(
                                     label: FrLabels.mercatoStatus(status),
                                   ),
+                              ],
+                            ),
                           );
                         }),
                       const SizedBox(height: 28),

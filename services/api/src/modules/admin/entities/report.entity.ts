@@ -33,6 +33,12 @@ export class Report {
   @Column({ type: 'text' })
   reason!: string;
 
+  @Column({ name: 'reason_code', type: 'varchar', length: 32, nullable: true })
+  reasonCode!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  comment!: string | null;
+
   @Column({ type: 'varchar', length: 32, default: ReportStatus.OPEN })
   status!: ReportStatus;
 

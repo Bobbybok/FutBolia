@@ -321,17 +321,19 @@ export class PickupMatchesService {
         relations: { user: { profile: true } },
         order: { joinedAt: 'ASC' },
       });
-      members = rows.map((m) => ({
-        id: m.id,
-        side: m.side,
-        joinedAt: m.joinedAt,
-        user: {
-          id: m.user.id,
-          pseudo: m.user.profile?.pseudo ?? null,
-          avatarUrl: m.user.profile?.avatarUrl ?? null,
-          role: toPlatformRole(m.user.globalRole),
-        },
-      }));
+      members = rows
+        .filter((m) => m.user)
+        .map((m) => ({
+          id: m.id,
+          side: m.side,
+          joinedAt: m.joinedAt,
+          user: {
+            id: m.user.id,
+            pseudo: m.user.profile?.pseudo ?? null,
+            avatarUrl: m.user.profile?.avatarUrl ?? null,
+            role: toPlatformRole(m.user.globalRole),
+          },
+        }));
     }
 
     return {

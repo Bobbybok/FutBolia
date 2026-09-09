@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/network/api_client.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
+import '../../moderation/report_sheet.dart';
 import '../widgets/chat_thread.dart';
 
 class TournamentChatScreen extends StatefulWidget {
@@ -152,6 +153,18 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
         sending: _sending,
         canDelete: (m) => m['isMine'] == true || widget.isOrganizer,
         onDelete: _delete,
+        onReportMessage: (m) => showReportSheet(
+          context,
+          type: 'message',
+          targetId: m['id']?.toString() ?? '',
+          title: 'Signaler le message',
+        ),
+        onReportUser: (m) => showReportSheet(
+          context,
+          type: 'user',
+          targetId: m['authorId']?.toString() ?? '',
+          title: 'Signaler ${m['authorPseudo'] ?? 'ce joueur'}',
+        ),
       ),
     );
   }

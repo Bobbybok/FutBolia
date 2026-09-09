@@ -5,6 +5,7 @@ import {
   postgresSslOption,
   resolveDatabaseConfig,
 } from '../config/database-config';
+import { ensureSchema } from './ensure-schema';
 import { User } from '../modules/users/entities/user.entity';
 import { Profile } from '../modules/users/entities/profile.entity';
 import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
@@ -93,6 +94,7 @@ export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
         if (!dataSource.isInitialized) {
           await dataSource.initialize();
         }
+        await ensureSchema(dataSource);
 
         return dataSource;
       },

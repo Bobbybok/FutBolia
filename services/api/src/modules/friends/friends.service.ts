@@ -49,11 +49,12 @@ export class FriendsService {
       relations: { fromUser: { profile: true }, toUser: { profile: true } },
       order: { updatedAt: 'DESC' },
     });
-    return rows.map((row) =>
-      this.toPublicUser(
-        row.fromUserId === userId ? row.toUser : row.fromUser,
-      ),
-    );
+    return rows
+      .map((row) => {
+        const other = row.fromUserId === userId ? row.toUser : row.fromUser;
+        return other ? this.toPublicUser(other) : null;
+      })
+      .filter((item): item is NonNullable<typeof item> => item != null);
   }
 
   async listRequests(userId: string) {
@@ -70,16 +71,20 @@ export class FriendsService {
       }),
     ]);
     return {
-      incoming: incoming.map((row) => ({
-        id: row.id,
-        createdAt: row.createdAt,
-        user: this.toPublicUser(row.fromUser),
-      })),
-      outgoing: outgoing.map((row) => ({
-        id: row.id,
-        createdAt: row.createdAt,
-        user: this.toPublicUser(row.toUser),
-      })),
+      incoming: incoming
+        .filter((row) => row.fromUser)
+        .map((row) => ({
+          id: row.id,
+          createdAt: row.createdAt,
+          user: this.toPublicUser(row.fromUser),
+        })),
+      outgoing: outgoing
+        .filter((row) => row.toUser)
+        .map((row) => ({
+          id: row.id,
+          createdAt: row.createdAt,
+          user: this.toPublicUser(row.toUser),
+        })),
     };
   }
 

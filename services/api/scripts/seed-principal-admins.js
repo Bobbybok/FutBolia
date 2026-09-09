@@ -263,6 +263,18 @@ async function main() {
       reviewed_at timestamptz
     )
   `);
+  await ds.query(`
+    ALTER TABLE reports
+      ADD COLUMN IF NOT EXISTS reason_code varchar(32)
+  `);
+  await ds.query(`
+    ALTER TABLE reports
+      ADD COLUMN IF NOT EXISTS comment text
+  `);
+  await ds.query(`
+    ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS suspended_until timestamptz
+  `);
 
   try {
     const first = await upsertAdmin(ds, {
