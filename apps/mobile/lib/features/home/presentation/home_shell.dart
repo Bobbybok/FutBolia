@@ -64,8 +64,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       SocketService.instance.setForeground(true);
       _refreshUnread();
-    } else if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused ||
+      return;
+    }
+    // `inactive` fires on web when you click another window (2e compte) — not a real background.
+    if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       SocketService.instance.setForeground(false);
     }
@@ -160,7 +162,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       ),
       NavigationDestination(
         icon: messagesIcon,
-        label: 'Messages',
+        label: 'Chat',
       ),
       const NavigationDestination(
         icon: Icon(Icons.person_outline),

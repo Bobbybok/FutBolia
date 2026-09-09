@@ -19,6 +19,8 @@ class AuthSession extends ChangeNotifier {
     _api.onAccessTokenChanged = (token) {
       SocketService.instance.updateToken(token);
     };
+    SocketService.instance.tokenProvider = () => _api.accessToken;
+    SocketService.instance.refreshAuth = _silentRefresh;
   }
 
   final ApiClient _api;

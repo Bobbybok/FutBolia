@@ -224,7 +224,7 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
       context,
       title: 'Supprimer la conversation ?',
       body:
-          'Elle disparaît de tes Messages. Pour la retrouver, ouvre le chat une fois depuis le tournoi.',
+          'Elle disparaît de tes chats. Pour la retrouver, ouvre le chat une fois depuis le tournoi.',
       confirmLabel: 'Supprimer',
     );
     if (!ok || !mounted) return;

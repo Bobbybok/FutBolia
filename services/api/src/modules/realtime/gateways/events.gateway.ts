@@ -33,9 +33,10 @@ type AccessPayload = {
 @SkipThrottle()
 @WebSocketGateway({
   cors: { origin: true, credentials: true },
-  transports: ['websocket'],
+  transports: ['websocket', 'polling'],
   pingInterval: 25_000,
   pingTimeout: 20_000,
+  allowEIO3: true,
 })
 export class EventsGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
@@ -71,8 +72,9 @@ export class EventsGateway
       client.data.userId = user.id;
       this.registry.add(user.id, client.id);
       await client.join(this.dispatch.userRoom(user.id));
+      this.logger.log(`Socket connecté user=${user.id}`);
     } catch {
-      this.logger.debug(`Socket ${client.id} rejected (JWT invalide)`);
+      this.logger.warn(`Socket ${client.id} rejeté (JWT invalide ou expiré)`);
       client.disconnect(true);
     }
   }
@@ -126,6 +128,13 @@ export class EventsGateway
     const auth = client.handshake.auth as { token?: unknown } | undefined;
     if (typeof auth?.token === 'string' && auth.token.trim()) {
       return auth.token.trim();
+    }
+    const query = client.handshake.query?.token;
+    if (typeof query === 'string' && query.trim()) {
+      return query.trim();
+    }
+    if (Array.isArray(query) && typeof query[0] === 'string') {
+      return query[0].trim();
     }
     const header = client.handshake.headers.authorization;
     if (typeof header === 'string' && header.startsWith('Bearer ')) {

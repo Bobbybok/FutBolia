@@ -27,7 +27,7 @@ class SettingsTab extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           title: const Text('Notifications'),
           subtitle: const Text(
-            'Alertes push. Le chat et le badge Messages restent actifs.',
+            'Alertes push. Tes conversations et le badge Chat restent actifs.',
           ),
           value: settings.notificationsEnabled,
           onChanged: (value) => _toggleNotifications(context, value),

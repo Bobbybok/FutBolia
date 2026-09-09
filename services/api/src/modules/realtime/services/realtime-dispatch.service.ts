@@ -31,16 +31,16 @@ export class RealtimeDispatchService {
   }
 
   /**
-   * Socket if the user has a foreground connection; otherwise FCM.
-   * Never both for the same event.
+   * Always push to an open socket (the UI is listening).
+   * FCM only when the user has no foreground socket — never skip the live event
+   * just because the tab was marked "background" (common on Flutter web).
    */
   async notifyUser(input: NotifyUserInput) {
     const { userId, event, payload } = input;
-    if (this.registry.shouldUseSocket(userId)) {
+    if (this.registry.hasSocket(userId)) {
       this.server?.to(this.userRoom(userId)).emit(event, payload);
-      return;
     }
-    if (input.skipPush || !input.push) {
+    if (this.registry.shouldUseSocket(userId) || input.skipPush || !input.push) {
       return;
     }
     try {

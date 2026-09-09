@@ -268,7 +268,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
       context,
       title: 'Supprimer la conversation ?',
       body:
-          'Elle disparaît de tes Messages. Pour la retrouver, ouvre le chat une fois depuis le tournoi.',
+          'Elle disparaît de tes chats. Pour la retrouver, ouvre le chat une fois depuis le tournoi.',
       confirmLabel: 'Supprimer',
     );
     if (!ok) return;
@@ -311,7 +311,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
 
     if (widget.embedded) return body;
     return Scaffold(
-      appBar: AppBar(title: const Text('Messages')),
+      appBar: AppBar(title: const Text('Chat')),
       body: body,
     );
   }

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -43,7 +41,7 @@ class PushNotificationService {
     final messaging = FirebaseMessaging.instance;
     await messaging.requestPermission(alert: true, badge: true, sound: true);
 
-    if (Platform.isIOS) {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
       await messaging.setForegroundNotificationPresentationOptions(
         alert: false,
         badge: true,
@@ -89,7 +87,8 @@ class PushNotificationService {
   Future<void> _registerToken(ApiClient api, String? token) async {
     if (token == null || token.isEmpty) return;
     _currentToken = token;
-    final platform = Platform.isIOS ? 'ios' : 'android';
+    final platform =
+        defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android';
     try {
       await api.upsertDeviceToken(token: token, platform: platform);
     } catch (e) {

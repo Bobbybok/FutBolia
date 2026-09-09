@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
@@ -13,6 +14,7 @@ class SocketService {
 
   io.Socket? _socket;
   String? _token;
+  bool _refreshing = false;
   final _joinedTournaments = <String>{};
   final _state = ValueNotifier<SocketConnectionState>(
     SocketConnectionState.disconnected,
@@ -32,6 +34,12 @@ class SocketService {
   final _eventInvite = StreamController<Map<String, dynamic>>.broadcast();
 
   final _inboxPing = StreamController<void>.broadcast();
+
+  /// Latest access token (after refresh).
+  String? Function()? tokenProvider;
+
+  /// Refresh the JWT when the handshake is rejected.
+  Future<bool> Function()? refreshAuth;
 
   ValueListenable<SocketConnectionState> get connectionState => _state;
 
@@ -57,7 +65,7 @@ class SocketService {
     _token = token;
     final existing = _socket;
     if (existing != null) {
-      existing.auth = {'token': token};
+      _applyAuth(existing, token);
       if (!existing.connected) {
         _state.value = SocketConnectionState.connecting;
         existing.connect();
@@ -66,34 +74,43 @@ class SocketService {
     }
 
     _state.value = SocketConnectionState.connecting;
+    debugPrint('Socket.io → ${AppConfig.socketUrl}');
     final socket = io.io(
       AppConfig.socketUrl,
       io.OptionBuilder()
-          .setTransports(['websocket'])
+          .setTransports(['websocket', 'polling'])
           .disableAutoConnect()
           .enableReconnection()
-          .setReconnectionDelay(1000)
-          .setReconnectionDelayMax(15000)
+          .setReconnectionDelay(800)
+          .setReconnectionDelayMax(12000)
           .setAuth({'token': token})
+          .setQuery({'token': token})
           .enableForceNew()
           .build(),
     );
     _socket = socket;
 
     socket.onConnect((_) {
+      debugPrint('Socket.io connecté');
       _state.value = SocketConnectionState.connected;
       socket.emit('app:foreground');
       _rejoinTournaments();
     });
     socket.onDisconnect((_) {
+      debugPrint('Socket.io déconnecté');
       if (_token != null) {
         _state.value = SocketConnectionState.connecting;
       } else {
         _state.value = SocketConnectionState.disconnected;
       }
     });
-    socket.onConnectError((_) {
+    socket.onConnectError((err) {
+      debugPrint('Socket.io connect_error: $err');
       _state.value = SocketConnectionState.connecting;
+      unawaited(_recoverAuth());
+    });
+    socket.onError((err) {
+      debugPrint('Socket.io error: $err');
     });
     socket.onReconnect((_) {
       _state.value = SocketConnectionState.connected;
@@ -170,7 +187,11 @@ class SocketService {
       disconnect();
       return;
     }
-    socket.auth = {'token': token};
+    _applyAuth(socket, token);
+    if (!socket.connected) {
+      _state.value = SocketConnectionState.connecting;
+      socket.connect();
+    }
   }
 
   void setForeground(bool foreground) {
@@ -207,9 +228,65 @@ class SocketService {
     socket?.dispose();
   }
 
+  void _applyAuth(io.Socket socket, String token) {
+    socket.auth = {'token': token};
+    try {
+      socket.io.options?['query'] = {'token': token};
+      socket.io.options?['auth'] = {'token': token};
+    } catch (_) {}
+  }
+
+  Future<void> _recoverAuth() async {
+    if (_refreshing || _token == null) return;
+    final refresh = refreshAuth;
+    if (refresh == null) return;
+    _refreshing = true;
+    try {
+      final ok = await refresh();
+      final next = tokenProvider?.call() ?? _token;
+      if (ok && next != null && next.isNotEmpty) {
+        updateToken(next);
+      }
+    } catch (e) {
+      debugPrint('Socket.io refresh JWT: $e');
+    } finally {
+      _refreshing = false;
+    }
+  }
+
   Map<String, dynamic>? _asMap(dynamic data) {
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
-    return null;
+    if (data == null) return null;
+    if (data is Map<String, dynamic>) {
+      return data.map((key, value) => MapEntry(key, _jsonValue(value)));
+    }
+    if (data is Map) {
+      return data.map(
+        (key, value) => MapEntry(key.toString(), _jsonValue(value)),
+      );
+    }
+    if (data is String) {
+      try {
+        return _asMap(jsonDecode(data));
+      } catch (_) {
+        return null;
+      }
+    }
+    try {
+      return _asMap(jsonDecode(jsonEncode(data)));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  dynamic _jsonValue(dynamic value) {
+    if (value is Map) {
+      return value.map(
+        (key, nested) => MapEntry(key.toString(), _jsonValue(nested)),
+      );
+    }
+    if (value is List) {
+      return value.map(_jsonValue).toList();
+    }
+    return value;
   }
 }
