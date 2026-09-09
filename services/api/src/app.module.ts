@@ -9,6 +9,7 @@ import { TournamentsModule } from './modules/tournaments/tournaments.module';
 import { TeamsModule } from './modules/teams/teams.module';
 import { MercatoModule } from './modules/mercato/mercato.module';
 import { MatchesModule } from './modules/matches/matches.module';
+import { PickupMatchesModule } from './modules/pickup-matches/pickup-matches.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { ForumModule } from './modules/forum/forum.module';
 import { AdminModule } from './modules/admin/admin.module';
@@ -41,6 +42,7 @@ import { validateEnv } from './config/env.validation';
     TeamsModule,
     MercatoModule,
     MatchesModule,
+    PickupMatchesModule,
     ChatModule,
     ForumModule,
     AdminModule,

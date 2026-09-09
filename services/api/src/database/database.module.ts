@@ -15,6 +15,8 @@ import { Team } from '../modules/teams/entities/team.entity';
 import { TeamMember } from '../modules/teams/entities/team-member.entity';
 import { RecruitmentOffer } from '../modules/mercato/entities/recruitment-offer.entity';
 import { Match } from '../modules/matches/entities/match.entity';
+import { PickupMatch } from '../modules/pickup-matches/entities/pickup-match.entity';
+import { PickupMatchMember } from '../modules/pickup-matches/entities/pickup-match-member.entity';
 import { TournamentChatMessage } from '../modules/chat/entities/tournament-chat-message.entity';
 import { ForumPost } from '../modules/forum/entities/forum-post.entity';
 import { ForumReply } from '../modules/forum/entities/forum-reply.entity';
@@ -63,6 +65,8 @@ export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
             TeamMember,
             RecruitmentOffer,
             Match,
+            PickupMatch,
+            PickupMatchMember,
             TournamentChatMessage,
             ForumPost,
             ForumReply,

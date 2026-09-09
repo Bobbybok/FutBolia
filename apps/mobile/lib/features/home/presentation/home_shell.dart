@@ -6,6 +6,7 @@ import '../../admin/admin_home_screen.dart';
 import '../../auth/application/auth_session.dart';
 import '../../auth/presentation/verify_email_screen.dart';
 import '../../friends/friends_screen.dart';
+import '../../pickup_matches/presentation/pickup_matches_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../tournaments/presentation/tournaments_screen.dart';
 
@@ -20,6 +21,8 @@ class _HomeShellState extends State<HomeShell> {
   int _index = 0;
   int _unread = 0;
   Timer? _unreadPoll;
+
+  static const _friendsTabIndex = 3;
 
   @override
   void initState() {
@@ -66,6 +69,7 @@ class _HomeShellState extends State<HomeShell> {
     final pages = [
       _HomeTab(onOpenTournaments: () => setState(() => _index = 1)),
       const TournamentsScreen(),
+      const PickupMatchesScreen(),
       const FriendsScreen(),
       const ProfileScreen(),
       if (user.isStaff) const AdminHomeScreen(),
@@ -86,6 +90,10 @@ class _HomeShellState extends State<HomeShell> {
       const NavigationDestination(
         icon: Icon(Icons.emoji_events_outlined),
         label: 'Tournois',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.sports_soccer_outlined),
+        label: 'Matchs',
       ),
       NavigationDestination(
         icon: friendsIcon,
@@ -115,7 +123,7 @@ class _HomeShellState extends State<HomeShell> {
         selectedIndex: selected,
         onDestinationSelected: (i) {
           setState(() => _index = i);
-          if (i == 2) _refreshUnread();
+          if (i == _friendsTabIndex) _refreshUnread();
         },
         destinations: destinations,
       ),

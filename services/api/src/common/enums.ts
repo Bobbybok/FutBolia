@@ -147,6 +147,18 @@ export enum MatchStatus {
   CANCELLED = 'cancelled',
 }
 
+export enum PickupMatchStatus {
+  OPEN = 'open',
+  FULL = 'full',
+  FINISHED = 'finished',
+  CANCELLED = 'cancelled',
+}
+
+export enum PickupMatchSide {
+  HOME = 'home',
+  AWAY = 'away',
+}
+
 export enum FriendRequestStatus {
   PENDING = 'pending',
   ACCEPTED = 'accepted',

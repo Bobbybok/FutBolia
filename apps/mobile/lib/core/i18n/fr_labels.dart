@@ -103,10 +103,25 @@ class FrLabels {
     switch (value) {
       case 'scheduled':
         return 'À jouer';
+      case 'open':
+        return 'Places disponibles';
+      case 'full':
+        return 'Complet';
       case 'finished':
         return 'Terminé';
       case 'cancelled':
         return 'Annulé';
+      default:
+        return value ?? '';
+    }
+  }
+
+  static String pickupSide(String? value) {
+    switch (value) {
+      case 'home':
+        return 'Équipe A';
+      case 'away':
+        return 'Équipe B';
       default:
         return value ?? '';
     }

@@ -350,6 +350,54 @@ class ApiClient {
     }, auth: true);
   }
 
+  Future<List<Map<String, dynamic>>> listPickupMatches({bool mine = false}) async {
+    final params = <String, String>{};
+    if (mine) params['mine'] = 'true';
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/pickup-matches').replace(
+      queryParameters: params.isEmpty ? null : params,
+    );
+    final response = await _client
+        .get(uri, headers: _headers(auth: true))
+        .timeout(const Duration(seconds: 10));
+    final decoded = _decodeDynamic(response);
+    if (decoded is! List) {
+      throw ApiException('Réponse matchs invalide');
+    }
+    return decoded
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> getPickupMatch(String id) {
+    return _get('/pickup-matches/$id', auth: true);
+  }
+
+  Future<Map<String, dynamic>> createPickupMatch(Map<String, dynamic> body) {
+    return _post('/pickup-matches', body, auth: true);
+  }
+
+  Future<Map<String, dynamic>> joinPickupMatch(String id, {String? code}) {
+    return _post('/pickup-matches/$id/join', {
+      if (code != null && code.isNotEmpty) 'code': code,
+    }, auth: true);
+  }
+
+  Future<Map<String, dynamic>> leavePickupMatch(String id) {
+    return _post('/pickup-matches/$id/leave', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> scorePickupMatch(
+    String id,
+    Map<String, dynamic> body,
+  ) {
+    return _patch('/pickup-matches/$id/score', body, auth: true);
+  }
+
+  Future<Map<String, dynamic>> cancelPickupMatch(String id) {
+    return _post('/pickup-matches/$id/cancel', {}, auth: true);
+  }
+
   Future<List<Map<String, dynamic>>> listTeams(String tournamentId) async {
     final decoded = await _getDynamic(
       '/tournaments/$tournamentId/teams',
