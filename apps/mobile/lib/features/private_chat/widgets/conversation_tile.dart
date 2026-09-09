@@ -14,21 +14,42 @@ class ConversationTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 
+  bool get _isTournament => conversation['kind'] == 'tournament';
+
   @override
   Widget build(BuildContext context) {
-    final friend = conversation['friend'];
     final last = conversation['lastMessage'];
     final unread = (conversation['unreadCount'] as num?)?.toInt() ?? 0;
     final preview = last is Map
         ? (last['body']?.toString() ?? '')
-        : 'Aucun message';
+        : _isTournament
+            ? 'Chat privé des participants'
+            : 'Aucun message';
+    final title = _isTournament
+        ? (conversation['name']?.toString() ?? 'Tournoi')
+        : staffPseudoOf(conversation['friend']);
+    final visibility = conversation['visibility']?.toString();
+    final subtitle = _isTournament && last is! Map
+        ? preview
+        : _isTournament && visibility != null
+            ? '${visibility == 'private' ? 'Tournoi privé' : 'Tournoi public'} · $preview'
+            : preview;
 
     return ListTile(
       onTap: onTap,
       onLongPress: onLongPress,
-      title: Text(staffPseudoOf(friend)),
+      leading: CircleAvatar(
+        backgroundColor: _isTournament
+            ? const Color(0xFFE8F5E9)
+            : FutBoliaColors.lime,
+        child: Icon(
+          _isTournament ? Icons.emoji_events_outlined : Icons.person_outline,
+          color: FutBoliaColors.ink,
+        ),
+      ),
+      title: Text(title),
       subtitle: Text(
-        preview,
+        subtitle,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
@@ -39,7 +60,11 @@ class ConversationTile extends StatelessWidget {
       trailing: unread > 0
           ? Badge(
               label: Text('$unread'),
-              child: const Icon(Icons.chat_bubble_outline),
+              child: Icon(
+                _isTournament
+                    ? Icons.forum_outlined
+                    : Icons.chat_bubble_outline,
+              ),
             )
           : const Icon(Icons.chevron_right, color: FutBoliaColors.inkMuted),
     );

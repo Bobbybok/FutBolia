@@ -28,6 +28,7 @@ import { FriendRequest } from '../modules/friends/entities/friend-request.entity
 import { Conversation } from '../modules/private-chat/entities/conversation.entity';
 import { DirectMessage } from '../modules/private-chat/entities/direct-message.entity';
 import { EventInvite } from '../modules/invites/entities/event-invite.entity';
+import { DeviceToken } from '../modules/notifications/entities/device-token.entity';
 
 export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
 
@@ -79,6 +80,7 @@ export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
             Conversation,
             DirectMessage,
             EventInvite,
+            DeviceToken,
           ],
           synchronize: (() => {
             const explicit = config.get<string>('DATABASE_SYNC');

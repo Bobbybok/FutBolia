@@ -57,3 +57,10 @@ services:
       # Set to "true" when a custom domain is ready for Resend.
       - key: EMAIL_VERIFICATION_REQUIRED
         value: "false"
+      # Firebase Cloud Messaging — set in the Render dashboard (never commit).
+      - key: FCM_PROJECT_ID
+        sync: false
+      - key: FCM_CLIENT_EMAIL
+        sync: false
+      - key: FCM_PRIVATE_KEY
+        sync: false

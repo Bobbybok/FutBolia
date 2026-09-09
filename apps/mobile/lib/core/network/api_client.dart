@@ -27,7 +27,15 @@ class ApiClient {
   /// access token was stored and the request should be retried.
   Future<bool> Function()? onUnauthorized;
 
-  void setAccessToken(String? token) => _accessToken = token;
+  String? get accessToken => _accessToken;
+
+  /// Called whenever the access token is set or cleared.
+  void Function(String? token)? onAccessTokenChanged;
+
+  void setAccessToken(String? token) {
+    _accessToken = token;
+    onAccessTokenChanged?.call(token);
+  }
 
   Future<Map<String, dynamic>> getHealth() {
     return _get('/health');
@@ -635,9 +643,11 @@ class ApiClient {
     String tournamentId, {
     String? before,
     int limit = 50,
+    bool restoreInbox = false,
   }) async {
     final params = <String, String>{'limit': '$limit'};
     if (before != null) params['before'] = before;
+    if (restoreInbox) params['restoreInbox'] = '1';
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/tournaments/$tournamentId/chat')
         .replace(queryParameters: params);
     final response = await _client
@@ -671,6 +681,15 @@ class ApiClient {
     if (decoded is Map<String, dynamic>) return decoded;
     if (decoded is Map) return Map<String, dynamic>.from(decoded);
     return <String, dynamic>{'success': true};
+  }
+
+  Future<List<Map<String, dynamic>>> listTournamentChats() {
+    return _getList('/chat/inbox');
+  }
+
+  Future<int> tournamentChatUnreadCount() async {
+    final data = await _get('/chat/unread-count', auth: true);
+    return (data['count'] as num?)?.toInt() ?? 0;
   }
 
   Future<List<Map<String, dynamic>>> listFriends() {
@@ -779,6 +798,42 @@ class ApiClient {
     return _patch('/conversations/$conversationId/read', {}, auth: true);
   }
 
+  Future<Map<String, dynamic>> clearConversation(String conversationId) {
+    return _post('/conversations/$conversationId/clear', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> hideConversation(String conversationId) {
+    return _delete('/conversations/$conversationId');
+  }
+
+  Future<Map<String, dynamic>> clearTournamentChat(String tournamentId) {
+    return _post('/tournaments/$tournamentId/chat/clear', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> clearTournamentChatForEveryone(
+    String tournamentId,
+  ) {
+    return _post('/tournaments/$tournamentId/chat/clear-all', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> hideTournamentChat(String tournamentId) {
+    return _post('/tournaments/$tournamentId/chat/hide', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> upsertDeviceToken({
+    required String token,
+    required String platform,
+  }) {
+    return _post('/users/me/device-token', {
+      'token': token,
+      'platform': platform,
+    }, auth: true);
+  }
+
+  Future<Map<String, dynamic>> deleteDeviceToken(String token) {
+    return _delete('/users/me/device-token', body: {'token': token});
+  }
+
   Future<Map<String, dynamic>> _get(String path, {bool auth = false}) async {
     return _withAuthRetry(auth, () async {
       try {
@@ -849,11 +904,18 @@ class ApiClient {
     });
   }
 
-  Future<Map<String, dynamic>> _delete(String path) async {
+  Future<Map<String, dynamic>> _delete(
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
     return _withAuthRetry(true, () async {
       try {
         final response = await _client
-            .delete(_uri(path), headers: _headers(auth: true))
+            .delete(
+              _uri(path),
+              headers: _headers(auth: true),
+              body: body == null ? null : jsonEncode(body),
+            )
             .timeout(const Duration(seconds: 15));
         final decoded = _decodeDynamic(response);
         if (decoded is Map<String, dynamic>) return decoded;

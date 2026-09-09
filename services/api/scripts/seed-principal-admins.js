@@ -275,6 +275,34 @@ async function main() {
     ALTER TABLE users
       ADD COLUMN IF NOT EXISTS suspended_until timestamptz
   `);
+  await ds.query(`
+    ALTER TABLE tournament_members
+      ADD COLUMN IF NOT EXISTS last_read_at timestamptz
+  `);
+  await ds.query(`
+    ALTER TABLE tournament_members
+      ADD COLUMN IF NOT EXISTS chat_cleared_at timestamptz
+  `);
+  await ds.query(`
+    ALTER TABLE tournament_members
+      ADD COLUMN IF NOT EXISTS chat_hidden_at timestamptz
+  `);
+  await ds.query(`
+    ALTER TABLE conversations
+      ADD COLUMN IF NOT EXISTS user1_cleared_at timestamptz
+  `);
+  await ds.query(`
+    ALTER TABLE conversations
+      ADD COLUMN IF NOT EXISTS user2_cleared_at timestamptz
+  `);
+  await ds.query(`
+    ALTER TABLE conversations
+      ADD COLUMN IF NOT EXISTS user1_hidden_at timestamptz
+  `);
+  await ds.query(`
+    ALTER TABLE conversations
+      ADD COLUMN IF NOT EXISTS user2_hidden_at timestamptz
+  `);
 
   try {
     const first = await upsertAdmin(ds, {

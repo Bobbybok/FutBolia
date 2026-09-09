@@ -5,7 +5,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { DataSource, IsNull, LessThan, Not, Repository } from 'typeorm';
+import { DataSource, And, IsNull, LessThan, MoreThan, Not, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
 import { isStaff, toPlatformRole } from '../../common/enums';
 import { FriendsService } from '../friends/friends.service';
@@ -13,12 +13,15 @@ import { User } from '../users/entities/user.entity';
 import { Conversation } from './entities/conversation.entity';
 import { DirectMessage } from './entities/direct-message.entity';
 import { SendDirectMessageDto } from './dto/send-message.dto';
+import { RealtimeDispatchService } from '../realtime/services/realtime-dispatch.service';
+import { RealtimeEvents } from '../realtime/realtime-events';
 
 @Injectable()
 export class ConversationsService {
   constructor(
     @Inject(TYPEORM_DATA_SOURCE) private readonly dataSource: DataSource | null,
     private readonly friends: FriendsService,
+    private readonly realtime: RealtimeDispatchService,
   ) {}
 
   private get db(): DataSource {
@@ -62,17 +65,31 @@ export class ConversationsService {
 
     const items = await Promise.all(
       rows.map(async (row) => {
+        const clearedAt = this.clearedAt(row, userId);
+        const hiddenAt = this.hiddenAt(row, userId);
         const last = await this.messages.findOne({
-          where: { conversationId: row.id, deletedAt: IsNull() },
-          order: { createdAt: 'DESC' },
-        });
-        const unreadCount = await this.messages.count({
           where: {
             conversationId: row.id,
             deletedAt: IsNull(),
-            readAt: IsNull(),
-            senderId: Not(userId),
+            ...(clearedAt ? { createdAt: MoreThan(clearedAt) } : {}),
           },
+          order: { createdAt: 'DESC' },
+        });
+        if (
+          hiddenAt &&
+          (!last || last.createdAt.getTime() <= hiddenAt.getTime())
+        ) {
+          return null;
+        }
+        const unreadWhere = {
+          conversationId: row.id,
+          deletedAt: IsNull(),
+          readAt: IsNull(),
+          senderId: Not(userId),
+          ...(clearedAt ? { createdAt: MoreThan(clearedAt) } : {}),
+        };
+        const unreadCount = await this.messages.count({
+          where: unreadWhere,
         });
         const friend = row.user1Id === userId ? row.user2 : row.user1;
         if (!friend) {
@@ -108,21 +125,23 @@ export class ConversationsService {
   }
 
   async unreadCount(userId: string) {
-    const rows = await this.conversations.find({
-      where: [{ user1Id: userId }, { user2Id: userId }],
-      select: { id: true },
-    });
-    if (rows.length === 0) {
-      return { count: 0 };
-    }
-    const count = await this.messages.count({
-      where: rows.map((row) => ({
-        conversationId: row.id,
-        deletedAt: IsNull(),
-        readAt: IsNull(),
-        senderId: Not(userId),
-      })),
-    });
+    const count = await this.messages
+      .createQueryBuilder('m')
+      .innerJoin('conversations', 'c', 'c.id = m.conversation_id')
+      .where('m.deleted_at IS NULL')
+      .andWhere('m.read_at IS NULL')
+      .andWhere('m.sender_id != :userId', { userId })
+      .andWhere('(c.user1_id = :userId OR c.user2_id = :userId)', { userId })
+      .andWhere(
+        `(
+          (c.user1_id = :userId AND (c.user1_cleared_at IS NULL OR m.created_at > c.user1_cleared_at)
+            AND (c.user1_hidden_at IS NULL OR m.created_at > c.user1_hidden_at))
+          OR
+          (c.user2_id = :userId AND (c.user2_cleared_at IS NULL OR m.created_at > c.user2_cleared_at)
+            AND (c.user2_hidden_at IS NULL OR m.created_at > c.user2_hidden_at))
+        )`,
+      )
+      .getCount();
     return { count };
   }
 
@@ -155,6 +174,8 @@ export class ConversationsService {
         },
       });
     }
+    this.setHiddenAt(conversation, userId, null);
+    await this.conversations.save(conversation);
     return this.toConversation(conversation, userId, true);
   }
 
@@ -164,6 +185,7 @@ export class ConversationsService {
     params?: { before?: string; limit?: number },
   ) {
     const conversation = await this.requireMember(conversationId, userId);
+    const clearedAt = this.clearedAt(conversation, userId);
     const limit = Math.min(Math.max(params?.limit ?? 50, 1), 100);
     let beforeDate: Date | undefined;
     if (params?.before) {
@@ -172,14 +194,20 @@ export class ConversationsService {
       });
       beforeDate = cursor?.createdAt;
     }
+    const createdAt =
+      beforeDate && clearedAt
+        ? And(MoreThan(clearedAt), LessThan(beforeDate))
+        : beforeDate
+          ? LessThan(beforeDate)
+          : clearedAt
+            ? MoreThan(clearedAt)
+            : undefined;
     const rows = await this.messages.find({
-      where: beforeDate
-        ? {
-            conversationId,
-            deletedAt: IsNull(),
-            createdAt: LessThan(beforeDate),
-          }
-        : { conversationId, deletedAt: IsNull() },
+      where: {
+        conversationId,
+        deletedAt: IsNull(),
+        ...(createdAt ? { createdAt } : {}),
+      },
       relations: { sender: { profile: true } },
       order: { createdAt: 'DESC' },
       take: limit,
@@ -217,23 +245,82 @@ export class ConversationsService {
       where: { id: saved.id },
       relations: { sender: { profile: true } },
     });
-    return this.toPublicMessage(full!, userId);
+    const published = this.toPublicMessage(full!, userId);
+    const socketPayload = this.toSocketMessage(published);
+    const preview = `${socketPayload.authorPseudo ?? 'Quelqu’un'}: ${dto.body.trim()}`.slice(
+      0,
+      140,
+    );
+    await Promise.all([
+      this.realtime.notifyUser({
+        userId: otherId,
+        event: RealtimeEvents.privateMessage,
+        payload: socketPayload,
+        push: {
+          title: socketPayload.authorPseudo || 'Message privé',
+          body: preview,
+          data: {
+            type: 'private_message',
+            conversationId,
+            messageId: saved.id,
+            senderId: userId,
+          },
+        },
+      }),
+      this.realtime.notifyUser({
+        userId,
+        event: RealtimeEvents.privateMessage,
+        payload: socketPayload,
+        skipPush: true,
+      }),
+    ]);
+    return published;
   }
 
   async deleteMessage(userId: string, conversationId: string, messageId: string) {
-    await this.requireMember(conversationId, userId);
+    const conversation = await this.requireMember(conversationId, userId);
     const message = await this.messages.findOne({
       where: { id: messageId, conversationId },
     });
     if (!message || message.deletedAt) {
       throw new NotFoundException('Message introuvable');
     }
-    if (message.senderId !== userId) {
-      throw new ForbiddenException('Tu ne peux supprimer que tes messages');
+    if (message.senderId !== userId && !(await this.actorIsStaff(userId))) {
+      throw new ForbiddenException(
+        'Seul l’auteur, un modo ou un admin peut supprimer ce message',
+      );
     }
     message.deletedAt = new Date();
     await this.messages.save(message);
+    const deletedPayload = { id: messageId, conversationId };
+    const otherId = this.otherUserId(conversation, userId);
+    await Promise.all(
+      [userId, otherId].map((id) =>
+        this.realtime.notifyUser({
+          userId: id,
+          event: RealtimeEvents.privateMessageDeleted,
+          payload: deletedPayload,
+          skipPush: true,
+        }),
+      ),
+    );
     return { success: true, id: messageId };
+  }
+
+  async clearForMe(userId: string, conversationId: string) {
+    const conversation = await this.requireMember(conversationId, userId);
+    this.setClearedAt(conversation, userId, new Date());
+    await this.conversations.save(conversation);
+    return { success: true };
+  }
+
+  async hideForMe(userId: string, conversationId: string) {
+    const conversation = await this.requireMember(conversationId, userId);
+    const now = new Date();
+    this.setClearedAt(conversation, userId, now);
+    this.setHiddenAt(conversation, userId, now);
+    await this.conversations.save(conversation);
+    return { success: true };
   }
 
   async markRead(userId: string, conversationId: string) {
@@ -267,6 +354,42 @@ export class ConversationsService {
     return conversation;
   }
 
+  private clearedAt(conversation: Conversation, userId: string) {
+    return conversation.user1Id === userId
+      ? conversation.user1ClearedAt
+      : conversation.user2ClearedAt;
+  }
+
+  private hiddenAt(conversation: Conversation, userId: string) {
+    return conversation.user1Id === userId
+      ? conversation.user1HiddenAt
+      : conversation.user2HiddenAt;
+  }
+
+  private setClearedAt(
+    conversation: Conversation,
+    userId: string,
+    value: Date | null,
+  ) {
+    if (conversation.user1Id === userId) {
+      conversation.user1ClearedAt = value;
+    } else {
+      conversation.user2ClearedAt = value;
+    }
+  }
+
+  private setHiddenAt(
+    conversation: Conversation,
+    userId: string,
+    value: Date | null,
+  ) {
+    if (conversation.user1Id === userId) {
+      conversation.user1HiddenAt = value;
+    } else {
+      conversation.user2HiddenAt = value;
+    }
+  }
+
   private toConversation(
     conversation: Conversation,
     userId: string,
@@ -292,6 +415,13 @@ export class ConversationsService {
       createdAt: message.createdAt,
       isMine: message.senderId === viewerId,
     };
+  }
+
+  private toSocketMessage(
+    message: ReturnType<ConversationsService['toPublicMessage']>,
+  ) {
+    const { isMine: _isMine, ...rest } = message;
+    return rest;
   }
 
   private toFriend(user: Conversation['user1'] | undefined) {

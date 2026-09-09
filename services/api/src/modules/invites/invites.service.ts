@@ -24,6 +24,8 @@ import { PickupMatch } from '../pickup-matches/entities/pickup-match.entity';
 import { User } from '../users/entities/user.entity';
 import { EventInvite } from './entities/event-invite.entity';
 import { CreateEventInvitesDto } from './dto/create-event-invites.dto';
+import { RealtimeDispatchService } from '../realtime/services/realtime-dispatch.service';
+import { RealtimeEvents } from '../realtime/realtime-events';
 
 @Injectable()
 export class InvitesService {
@@ -32,6 +34,7 @@ export class InvitesService {
     private readonly friends: FriendsService,
     private readonly tournaments: TournamentsService,
     private readonly pickupMatches: PickupMatchesService,
+    private readonly realtime: RealtimeDispatchService,
   ) {}
 
   private get db(): DataSource {
@@ -111,10 +114,14 @@ export class InvitesService {
       );
     }
 
+    const invites = await Promise.all(created.map((row) => this.toPublic(row)));
+    await Promise.all(
+      invites.map((invite) => this.notifyInvite(invite)),
+    );
     return {
       success: true,
       invited: created.length,
-      invites: await Promise.all(created.map((row) => this.toPublic(row))),
+      invites,
     };
   }
 
@@ -325,5 +332,29 @@ export class InvitesService {
     }
     const m = await this.pickupMatchesRepo.findOne({ where: { id: targetId } });
     return m ? `${m.location} · ${m.playersPerTeam}v${m.playersPerTeam}` : 'Match';
+  }
+
+  private async notifyInvite(invite: Awaited<ReturnType<InvitesService['toPublic']>>) {
+    const isTournament = invite.targetType === EventInviteTargetType.TOURNAMENT;
+    const event = isTournament
+      ? RealtimeEvents.tournamentInvite
+      : RealtimeEvents.pickupInvite;
+    const from = invite.inviter.pseudo || 'Un ami';
+    const label = invite.targetLabel;
+    await this.realtime.notifyUser({
+      userId: invite.invitee.id,
+      event,
+      payload: invite,
+      push: {
+        title: isTournament ? 'Invitation à un tournoi' : 'Invitation à un match',
+        body: `${from} t’invite : ${label}`,
+        data: {
+          type: isTournament ? 'tournament_invite' : 'pickup_invite',
+          inviteId: invite.id,
+          targetType: invite.targetType,
+          targetId: invite.targetId,
+        },
+      },
+    });
   }
 }

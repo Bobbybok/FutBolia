@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/config/app_config.dart';
+import 'core/notifications/notification_router.dart';
 import 'design_system/theme/futbolia_theme.dart';
 import 'features/auth/application/auth_session.dart';
 import 'features/auth/presentation/login_screen.dart';
@@ -17,6 +18,7 @@ class FutBoliaApp extends StatelessWidget {
         title: AppConfig.appName,
         debugShowCheckedModeBanner: false,
         theme: FutBoliaTheme.light(),
+        navigatorKey: futboliaNavigatorKey,
         home: const _RootGate(),
       ),
     );

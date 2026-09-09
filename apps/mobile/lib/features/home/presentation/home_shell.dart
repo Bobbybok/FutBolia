@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/realtime/socket_service.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../admin/admin_home_screen.dart';
 import '../../auth/application/auth_session.dart';
@@ -17,16 +18,17 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int _index = 0;
   int _unread = 0;
-  Timer? _unreadPoll;
+  StreamSubscription<void>? _inboxSub;
 
   static const _friendsTabIndex = 3;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final session = context.read<AuthSession>();
@@ -38,24 +40,39 @@ class _HomeShellState extends State<HomeShell> {
       }
       _refreshUnread();
     });
-    _unreadPoll = Timer.periodic(
-      const Duration(seconds: 8),
-      (_) => _refreshUnread(),
-    );
+    _inboxSub = SocketService.instance.onInboxPing.listen((_) {
+      _refreshUnread();
+    });
   }
 
   @override
   void dispose() {
-    _unreadPoll?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _inboxSub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      SocketService.instance.setForeground(true);
+      _refreshUnread();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      SocketService.instance.setForeground(false);
+    }
   }
 
   Future<void> _refreshUnread() async {
     try {
-      final count =
-          await context.read<AuthSession>().api.conversationsUnreadCount();
+      final api = context.read<AuthSession>().api;
+      final counts = await Future.wait([
+        api.conversationsUnreadCount(),
+        api.tournamentChatUnreadCount(),
+      ]);
       if (!mounted) return;
-      setState(() => _unread = count);
+      setState(() => _unread = counts[0] + counts[1]);
     } catch (_) {
       // Badge optionnel : une panne réseau ne bloque pas la nav.
     }

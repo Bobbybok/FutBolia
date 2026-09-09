@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/notifications/push_notification_service.dart';
+import '../../../core/realtime/socket_service.dart';
 import '../domain/futbolia_user.dart';
 
 class AuthSession extends ChangeNotifier {
@@ -12,6 +14,9 @@ class AuthSession extends ChangeNotifier {
   })  : _api = apiClient ?? ApiClient(),
         _storage = storage ?? const FlutterSecureStorage() {
     _api.onUnauthorized = _silentRefresh;
+    _api.onAccessTokenChanged = (token) {
+      SocketService.instance.updateToken(token);
+    };
   }
 
   final ApiClient _api;
@@ -78,6 +83,9 @@ class AuthSession extends ChangeNotifier {
         // Network / cold start: keep cached user + tokens.
       } catch (_) {
         // Keep local session if the API is briefly unreachable.
+      }
+      if (user != null && _api.accessToken != null) {
+        await _startRealtime();
       }
     } finally {
       bootstrapping = false;
@@ -239,6 +247,8 @@ class AuthSession extends ChangeNotifier {
     } catch (_) {
       // Local logout still proceeds.
     }
+    await PushNotificationService.instance.stop(_api);
+    SocketService.instance.disconnect();
     await _clearTokens();
     user = null;
     pendingEmailVerificationToken = null;
@@ -261,6 +271,12 @@ class AuthSession extends ChangeNotifier {
     await _storage.write(key: _kUser, value: jsonEncode(userMap));
     _api.setAccessToken(access);
     user = FutBoliaUser.fromJson(userMap);
+    await _startRealtime();
+  }
+
+  Future<void> _startRealtime() async {
+    SocketService.instance.connect(_api.accessToken);
+    await PushNotificationService.instance.start(_api);
   }
 
   Future<void> _clearTokens() async {

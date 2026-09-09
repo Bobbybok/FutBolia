@@ -39,6 +39,18 @@ export class Conversation {
   @OneToMany(() => DirectMessage, (message) => message.conversation)
   messages?: DirectMessage[];
 
+  @Column({ name: 'user1_cleared_at', type: 'timestamptz', nullable: true })
+  user1ClearedAt!: Date | null;
+
+  @Column({ name: 'user2_cleared_at', type: 'timestamptz', nullable: true })
+  user2ClearedAt!: Date | null;
+
+  @Column({ name: 'user1_hidden_at', type: 'timestamptz', nullable: true })
+  user1HiddenAt!: Date | null;
+
+  @Column({ name: 'user2_hidden_at', type: 'timestamptz', nullable: true })
+  user2HiddenAt!: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 }

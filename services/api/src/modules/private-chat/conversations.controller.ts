@@ -70,6 +70,22 @@ export class ConversationsController {
     return this.conversations.deleteMessage(user.id, id, messageId);
   }
 
+  @Post(':id/clear')
+  clear(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.conversations.clearForMe(user.id, id);
+  }
+
+  @Delete(':id')
+  hide(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.conversations.hideForMe(user.id, id);
+  }
+
   @Patch(':id/read')
   markRead(
     @CurrentUser() user: AuthUser,

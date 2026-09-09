@@ -136,4 +136,64 @@ describe('Chat (e2e)', () => {
       list.body.every((m: { id: string }) => m.id !== messageId),
     ).toBe(true);
   });
+
+  it('lists a private chat thread for each joined tournament', async () => {
+    const inbox = await request(app.getHttpServer())
+      .get('/api/v1/chat/inbox')
+      .set('Authorization', `Bearer ${playerToken}`)
+      .expect(200);
+
+    const row = inbox.body.find(
+      (item: { tournamentId: string }) => item.tournamentId === tournamentId,
+    );
+    expect(row).toBeDefined();
+    expect(row.kind).toBe('tournament');
+
+    const outsiderInbox = await request(app.getHttpServer())
+      .get('/api/v1/chat/inbox')
+      .set('Authorization', `Bearer ${outsiderToken}`)
+      .expect(200);
+    expect(
+      outsiderInbox.body.some(
+        (item: { tournamentId: string }) => item.tournamentId === tournamentId,
+      ),
+    ).toBe(false);
+  });
+
+  it('gives private tournaments a members-only chat as well', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/tournaments')
+      .set('Authorization', `Bearer ${orgToken}`)
+      .send({
+        name: `Privé Chat ${suffix}`,
+        startsAt: new Date(Date.now() + 86400000).toISOString(),
+        location: 'Lyon',
+        maxTeams: 4,
+        visibility: 'private',
+      })
+      .expect(201);
+
+    const privateId = created.body.id as string;
+
+    const orgInbox = await request(app.getHttpServer())
+      .get('/api/v1/chat/inbox')
+      .set('Authorization', `Bearer ${orgToken}`)
+      .expect(200);
+    expect(
+      orgInbox.body.some(
+        (item: { tournamentId: string }) => item.tournamentId === privateId,
+      ),
+    ).toBe(true);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/tournaments/${privateId}/chat`)
+      .set('Authorization', `Bearer ${orgToken}`)
+      .send({ body: 'Salon privé' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/tournaments/${privateId}/chat`)
+      .set('Authorization', `Bearer ${outsiderToken}`)
+      .expect(403);
+  });
 });

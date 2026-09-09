@@ -135,6 +135,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
     final isMember = t['myRole'] != null;
     final isPrivate = t['visibility'] == 'private';
     final isOrganizer = t['myRole'] == 'organizer';
+    final isStaff = context.watch<AuthSession>().user?.isStaff ?? false;
 
     return Scaffold(
       appBar: AppBar(title: Text(t['name']?.toString() ?? 'Tournoi')),
@@ -224,9 +225,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
                 if (mounted) _load();
               },
             ),
-            const SizedBox(height: 12),
+          ],
+          if (isMember || isStaff) ...[
+            SizedBox(height: isMember ? 12 : 28),
             FbButton(
-              label: 'Chat du tournoi',
+              label: 'Chat privé du tournoi',
               variant: FbButtonVariant.secondary,
               onPressed: () {
                 Navigator.of(context).push(
@@ -234,12 +237,17 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
                     builder: (_) => TournamentChatScreen(
                       tournamentId: widget.tournamentId,
                       tournamentName: t['name']?.toString() ?? 'Tournoi',
-                      isOrganizer: t['myRole'] == 'organizer',
+                      isOrganizer: isOrganizer,
+                      canClearForEveryone: isOrganizer,
+                      canSend: isMember,
+                      restoreInInbox: true,
                     ),
                   ),
                 );
               },
             ),
+          ],
+          if (isMember) ...[
             const SizedBox(height: 16),
             if (t['mode'] == 'selection') ...[
               FbButton(

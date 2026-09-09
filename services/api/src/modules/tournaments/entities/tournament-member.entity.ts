@@ -39,6 +39,15 @@ export class TournamentMember {
   @Column({ type: 'varchar', default: TournamentMemberRole.PLAYER })
   role!: TournamentMemberRole;
 
+  @Column({ name: 'last_read_at', type: 'timestamptz', nullable: true })
+  lastReadAt!: Date | null;
+
+  @Column({ name: 'chat_cleared_at', type: 'timestamptz', nullable: true })
+  chatClearedAt!: Date | null;
+
+  @Column({ name: 'chat_hidden_at', type: 'timestamptz', nullable: true })
+  chatHiddenAt!: Date | null;
+
   @CreateDateColumn({ name: 'joined_at', type: 'timestamptz' })
   joinedAt!: Date;
 }

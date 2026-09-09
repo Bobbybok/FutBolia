@@ -14,11 +14,14 @@ import { FriendRequest } from './entities/friend-request.entity';
 import { User } from '../users/entities/user.entity';
 import { Profile } from '../users/entities/profile.entity';
 import { SendFriendRequestDto } from './dto/friends.dto';
+import { RealtimeDispatchService } from '../realtime/services/realtime-dispatch.service';
+import { RealtimeEvents } from '../realtime/realtime-events';
 
 @Injectable()
 export class FriendsService {
   constructor(
     @Inject(TYPEORM_DATA_SOURCE) private readonly dataSource: DataSource | null,
+    private readonly realtime: RealtimeDispatchService,
   ) {}
 
   private get db(): DataSource {
@@ -129,6 +132,7 @@ export class FriendsService {
       existing.status = FriendRequestStatus.ACCEPTED;
       existing.respondedAt = new Date();
       await this.requests.save(existing);
+      await this.notifyFriendAccepted(actorId, existing.fromUserId);
       return { success: true, status: 'accepted' };
     }
 
@@ -138,6 +142,7 @@ export class FriendsService {
       existing.status = FriendRequestStatus.PENDING;
       existing.respondedAt = null;
       await this.requests.save(existing);
+      await this.notifyFriendRequest(actorId, target.id, existing.id);
       return { success: true, status: 'pending', id: existing.id };
     }
 
@@ -148,6 +153,7 @@ export class FriendsService {
         status: FriendRequestStatus.PENDING,
       }),
     );
+    await this.notifyFriendRequest(actorId, target.id, saved.id);
     return { success: true, status: 'pending', id: saved.id };
   }
 
@@ -162,6 +168,7 @@ export class FriendsService {
     row.status = FriendRequestStatus.ACCEPTED;
     row.respondedAt = new Date();
     await this.requests.save(row);
+    await this.notifyFriendAccepted(actorId, row.fromUserId);
     return { success: true };
   }
 
@@ -280,5 +287,52 @@ export class FriendsService {
       role: toPlatformRole(user.globalRole),
       city: user.profile?.city ?? null,
     };
+  }
+
+  private async loadPublicUser(userId: string) {
+    const user = await this.users.findOne({
+      where: { id: userId },
+      relations: { profile: true },
+    });
+    return user ? this.toPublicUser(user) : { id: userId, pseudo: '', role: 'user', city: null };
+  }
+
+  private async notifyFriendRequest(
+    fromUserId: string,
+    toUserId: string,
+    requestId: string,
+  ) {
+    const from = await this.loadPublicUser(fromUserId);
+    await this.realtime.notifyUser({
+      userId: toUserId,
+      event: RealtimeEvents.friendRequest,
+      payload: { id: requestId, user: from },
+      push: {
+        title: 'Demande d’ami',
+        body: `${from.pseudo || 'Un joueur'} veut t’ajouter`,
+        data: {
+          type: 'friend_request',
+          requestId,
+          userId: fromUserId,
+        },
+      },
+    });
+  }
+
+  private async notifyFriendAccepted(actorId: string, requesterId: string) {
+    const actor = await this.loadPublicUser(actorId);
+    await this.realtime.notifyUser({
+      userId: requesterId,
+      event: RealtimeEvents.friendAccepted,
+      payload: { user: actor },
+      push: {
+        title: 'Demande acceptée',
+        body: `${actor.pseudo || 'Un joueur'} a accepté ta demande`,
+        data: {
+          type: 'friend_accepted',
+          userId: actorId,
+        },
+      },
+    });
   }
 }

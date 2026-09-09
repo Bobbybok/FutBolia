@@ -250,3 +250,8 @@ export enum EventInviteStatus {
   DECLINED = 'declined',
   CANCELLED = 'cancelled',
 }
+
+export enum DevicePlatform {
+  ANDROID = 'android',
+  IOS = 'ios',
+}

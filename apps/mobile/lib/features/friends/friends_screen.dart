@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/network/api_client.dart';
+import '../../core/realtime/socket_service.dart';
 import '../../design_system/tokens/colors.dart';
 import '../auth/application/auth_session.dart';
 import '../auth/domain/staff_label.dart';
@@ -31,6 +33,7 @@ class _FriendsScreenState extends State<FriendsScreen>
   List<Map<String, dynamic>> _outgoing = [];
   List<Map<String, dynamic>> _eventInvites = [];
   List<Map<String, dynamic>> _results = [];
+  final _subs = <StreamSubscription>[];
 
   ApiClient get _api => context.read<AuthSession>().api;
 
@@ -39,20 +42,29 @@ class _FriendsScreenState extends State<FriendsScreen>
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
     _reload();
+    final socket = SocketService.instance;
+    _subs.add(socket.onFriendRequest.listen((_) => _reload(silent: true)));
+    _subs.add(socket.onFriendAccepted.listen((_) => _reload(silent: true)));
+    _subs.add(socket.onEventInvite.listen((_) => _reload(silent: true)));
   }
 
   @override
   void dispose() {
+    for (final sub in _subs) {
+      sub.cancel();
+    }
     _tabs.dispose();
     _search.dispose();
     super.dispose();
   }
 
-  Future<void> _reload() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _reload({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final friends = await _api.listFriends();
       final requests = await _api.listFriendRequests();

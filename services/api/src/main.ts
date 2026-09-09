@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import helmet from 'helmet';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
@@ -7,6 +8,7 @@ import { frenchValidationExceptionFactory } from './common/validation/french-val
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.useWebSocketAdapter(new IoAdapter(app));
   const config = app.get(ConfigService);
 
   const prefix = config.get<string>('API_PREFIX', 'api/v1');
