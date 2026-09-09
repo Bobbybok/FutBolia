@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../design_system/components/fb_atmosphere.dart';
 import '../../../design_system/components/fb_badge.dart';
+import '../../../design_system/components/fb_brand.dart';
 import '../../../design_system/components/fb_button.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
@@ -22,29 +24,47 @@ class ProfileScreen extends StatelessWidget {
       length: 3,
       child: Scaffold(
         backgroundColor: FutBoliaColors.surfaceDark,
-        appBar: AppBar(
-          title: Text(
-            'Profil',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontStyle: FontStyle.italic,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
+        body: FbAtmosphere(
+          safeArea: true,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Row(
+                  children: [
+                    const Expanded(child: FbBrandHeader()),
+                    Text(
+                      'Profil',
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineMedium
+                          ?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontStyle: FontStyle.italic,
+                          ),
+                    ),
+                  ],
                 ),
-          ),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Profil'),
-              Tab(text: 'Amis'),
-              Tab(text: 'Réglages'),
+              ),
+              const TabBar(
+                tabs: [
+                  Tab(text: 'Profil'),
+                  Tab(text: 'Amis'),
+                  Tab(text: 'Réglages'),
+                ],
+              ),
+              const Expanded(
+                child: TabBarView(
+                  children: [
+                    _ProfileEditTab(),
+                    FriendsScreen(embedded: true),
+                    SettingsTab(),
+                  ],
+                ),
+              ),
             ],
           ),
-        ),
-        body: const TabBarView(
-          children: [
-            _ProfileEditTab(),
-            FriendsScreen(embedded: true),
-            SettingsTab(),
-          ],
         ),
       ),
     );
@@ -123,26 +143,22 @@ class _ProfileEditTabState extends State<_ProfileEditTab>
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
       children: [
         Container(
           padding: const EdgeInsets.fromLTRB(16, 28, 16, 24),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            image: const DecorationImage(
-              image: AssetImage('assets/images/bg_stadium_night.jpg'),
-              fit: BoxFit.cover,
-              colorFilter: ColorFilter.mode(
-                Color(0xAA070B09),
-                BlendMode.darken,
-              ),
+            color: FutBoliaColors.cardDark.withValues(alpha: 0.72),
+            border: Border.all(
+              color: FutBoliaColors.lime.withValues(alpha: 0.35),
             ),
           ),
           child: Column(
             children: [
               CircleAvatar(
                 radius: 42,
-                backgroundColor: FutBoliaColors.cardDark,
+                backgroundColor: FutBoliaColors.surfaceDark,
                 child: Icon(
                   Icons.sports_soccer,
                   size: 40,
@@ -188,17 +204,20 @@ class _ProfileEditTabState extends State<_ProfileEditTab>
         const SizedBox(height: 20),
         TextField(
           controller: _firstName,
+          style: const TextStyle(color: Colors.white),
           decoration: const InputDecoration(labelText: 'Prénom (optionnel)'),
         ),
         const SizedBox(height: 14),
         TextField(
           controller: _city,
+          style: const TextStyle(color: Colors.white),
           decoration: const InputDecoration(labelText: 'Ville'),
         ),
         const SizedBox(height: 14),
         TextField(
           controller: _bio,
           maxLines: 3,
+          style: const TextStyle(color: Colors.white),
           decoration: const InputDecoration(labelText: 'Description'),
         ),
         const SizedBox(height: 24),

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/network/api_client.dart';
 import '../../core/realtime/socket_service.dart';
+import '../../design_system/components/fb_atmosphere.dart';
+import '../../design_system/components/fb_brand.dart';
 import '../../design_system/tokens/colors.dart';
 import '../auth/application/auth_session.dart';
 import '../chat/chat_actions.dart';
@@ -275,10 +277,10 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final body = RefreshIndicator(
+    final list = RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
-        padding: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
         children: [
           if (_error != null)
             Padding(
@@ -288,12 +290,18 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                 style: const TextStyle(color: FutBoliaColors.danger),
               ),
             ),
-          if (_loading) const LinearProgressIndicator(),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: LinearProgressIndicator(),
+            ),
           if (!_loading && _items.isEmpty)
             const Padding(
               padding: EdgeInsets.all(24),
               child: Text(
                 'Aucun message. Les chats privés de tes tournois et de tes amis s’affichent ici.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70),
               ),
             ),
           ..._items.map(
@@ -307,10 +315,38 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
       ),
     );
 
-    if (widget.embedded) return body;
+    if (widget.embedded) return list;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Chat')),
-      body: body,
+      backgroundColor: FutBoliaColors.surfaceDark,
+      body: FbAtmosphere(
+        safeArea: true,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+              child: Row(
+                children: [
+                  const Expanded(child: FbBrandHeader()),
+                  Text(
+                    'Messages',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  IconButton(
+                    onPressed: _reload,
+                    icon: const Icon(Icons.refresh, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(child: list),
+          ],
+        ),
+      ),
     );
   }
 }

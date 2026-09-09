@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/i18n/fr_labels.dart';
+import '../../../design_system/components/fb_atmosphere.dart';
 import '../../../design_system/components/fb_badge.dart';
+import '../../../design_system/components/fb_brand.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
 import 'create_pickup_match_screen.dart';
@@ -72,20 +74,7 @@ class _PickupMatchesScreenState extends State<PickupMatchesScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Matchs'),
-        bottom: TabBar(
-          controller: _tabs,
-          labelColor: FutBoliaColors.pitchDark,
-          tabs: const [
-            Tab(text: 'Ouverts'),
-            Tab(text: 'Mes matchs'),
-          ],
-        ),
-        actions: [
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
-        ],
-      ),
+      backgroundColor: FutBoliaColors.surfaceDark,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final created = await Navigator.of(context).push<bool>(
@@ -95,43 +84,72 @@ class _PickupMatchesScreenState extends State<PickupMatchesScreen>
           );
           if (created == true) _load();
         },
-        backgroundColor: FutBoliaColors.pitch,
-        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
-        label: const Text('Créer'),
+        label: const Text('CRÉER'),
       ),
-      body: Column(
-        children: [
-          if (_error != null)
+      body: FbAtmosphere(
+        asset: 'assets/images/bg_pitch.jpg',
+        safeArea: true,
+        child: Column(
+          children: [
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                _error!,
-                style: const TextStyle(color: FutBoliaColors.danger),
+              padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+              child: Row(
+                children: [
+                  const Expanded(child: FbBrandHeader()),
+                  Text(
+                    'Matchs',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  IconButton(
+                    onPressed: _load,
+                    icon: const Icon(Icons.refresh, color: Colors.white),
+                  ),
+                ],
               ),
             ),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _tabs,
-                    children: [
-                      _PickupMatchList(
-                        items: _discover,
-                        emptyLabel: 'Aucun match public ouvert pour le moment.',
-                        onOpen: _open,
-                        onRefresh: _load,
-                      ),
-                      _PickupMatchList(
-                        items: _mine,
-                        emptyLabel: 'Tu ne participes à aucun match.',
-                        onOpen: _open,
-                        onRefresh: _load,
-                      ),
-                    ],
-                  ),
-          ),
-        ],
+            TabBar(
+              controller: _tabs,
+              tabs: const [
+                Tab(text: 'Ouverts'),
+                Tab(text: 'Mes matchs'),
+              ],
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: FutBoliaColors.danger),
+                ),
+              ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : TabBarView(
+                      controller: _tabs,
+                      children: [
+                        _PickupMatchList(
+                          items: _discover,
+                          emptyLabel:
+                              'Aucun match public ouvert pour le moment.',
+                          onOpen: _open,
+                          onRefresh: _load,
+                        ),
+                        _PickupMatchList(
+                          items: _mine,
+                          emptyLabel: 'Tu ne participes à aucun match.',
+                          onOpen: _open,
+                          onRefresh: _load,
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -164,7 +182,7 @@ class _PickupMatchList extends StatelessWidget {
                 emptyLabel,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: FutBoliaColors.inkMuted,
+                      color: Colors.white70,
                     ),
               ),
             ),
@@ -176,27 +194,51 @@ class _PickupMatchList extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
         itemCount: items.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final m = items[index];
-          final capacity = m['capacity'] ?? ((m['playersPerTeam'] as int? ?? 0) * 2);
+          final capacity =
+              m['capacity'] ?? ((m['playersPerTeam'] as int? ?? 0) * 2);
           final membersCount = m['membersCount'] ?? 0;
           return Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            color: Colors.transparent,
             child: InkWell(
-              borderRadius: BorderRadius.circular(12),
               onTap: () => onOpen(m),
-              child: Padding(
+              borderRadius: BorderRadius.circular(18),
+              child: Ink(
                 padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      m['location']?.toString() ?? 'Match',
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            m['location']?.toString() ?? 'Match',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  color: FutBoliaColors.ink,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                        ),
+                        const FbBrandMark(size: 28),
+                      ],
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -205,21 +247,26 @@ class _PickupMatchList extends StatelessWidget {
                             color: FutBoliaColors.inkMuted,
                           ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
                         FbBadge(
                           label: FrLabels.matchStatus(m['status']?.toString()),
+                          background: FutBoliaColors.lime,
+                          foreground: FutBoliaColors.ink,
                         ),
                         FbBadge(
-                          label: FrLabels.visibility(m['visibility']?.toString()),
-                          background: const Color(0xFFE3F2FD),
+                          label:
+                              FrLabels.visibility(m['visibility']?.toString()),
+                          background: const Color(0xFFF3F7F4),
+                          foreground: FutBoliaColors.pitchDark,
                         ),
                         FbBadge(
                           label: '$membersCount / $capacity',
-                          background: const Color(0xFFE8F5E9),
+                          background: FutBoliaColors.lime,
+                          foreground: FutBoliaColors.ink,
                         ),
                       ],
                     ),
@@ -235,8 +282,12 @@ class _PickupMatchList extends StatelessWidget {
 
   String _formatDate(dynamic value) {
     if (value == null) return 'Date inconnue';
-    final dt = DateTime.tryParse(value.toString());
+    final dt = DateTime.tryParse(value.toString())?.toLocal();
     if (dt == null) return value.toString();
-    return dt.toLocal().toString().substring(0, 16);
+    final day = dt.day.toString().padLeft(2, '0');
+    final month = dt.month.toString().padLeft(2, '0');
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '$day/$month/${dt.year} · $hour:$minute';
   }
 }

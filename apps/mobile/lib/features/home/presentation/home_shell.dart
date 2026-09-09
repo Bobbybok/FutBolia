@@ -295,7 +295,7 @@ class _HomeTab extends StatelessWidget {
               children: [
                 Expanded(
                   child: _GridTile(
-                    title: 'MATCHS\nAMICAUX',
+                    title: 'MATCHS',
                     icon: Icons.sports_soccer,
                     asset: 'assets/images/bg_pitch.jpg',
                     onTap: onOpenMatches,
@@ -313,26 +313,11 @@ class _HomeTab extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _GridTile(
-                    title: 'PROFIL',
-                    icon: Icons.person_outline,
-                    tint: const Color(0xFF163528),
-                    onTap: onOpenProfile,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _GridTile(
-                    title: 'TOURNOIS\nPRO',
-                    icon: Icons.emoji_events_outlined,
-                    tint: const Color(0xFF0F2A1F),
-                    onTap: onOpenTournaments,
-                  ),
-                ),
-              ],
+            _GridTile(
+              title: 'PROFIL',
+              icon: Icons.person_outline,
+              tint: const Color(0xFF163528),
+              onTap: onOpenProfile,
             ),
           ],
         ),

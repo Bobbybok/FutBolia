@@ -65,6 +65,12 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
             const SizedBox(height: 36),
+            Text(
+              'Connecte-toi à ton espace',
+              textAlign: TextAlign.center,
+              style: textTheme.bodySmall?.copyWith(color: Colors.white70),
+            ),
+            const SizedBox(height: 14),
             TextField(
               controller: _email,
               keyboardType: TextInputType.emailAddress,
@@ -74,12 +80,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 hintText: 'E-mail',
                 prefixIcon: Icon(Icons.mail_outline),
               ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'Connecte-toi à ton espace',
-              textAlign: TextAlign.center,
-              style: textTheme.bodySmall?.copyWith(color: Colors.white70),
             ),
             const SizedBox(height: 14),
             TextField(

@@ -35,43 +35,78 @@ class ConversationTile extends StatelessWidget {
             ? '${visibility == 'private' ? 'Tournoi privé' : 'Tournoi public'} · $preview'
             : preview;
 
-    return ListTile(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      leading: CircleAvatar(
-        backgroundColor: _isTournament
-            ? Theme.of(context).colorScheme.primaryContainer
-            : FutBoliaColors.lime,
-        child: Icon(
-          _isTournament ? Icons.emoji_events_outlined : Icons.person_outline,
-          color: FutBoliaColors.ink,
-        ),
-      ),
-      title: Text(title),
-      subtitle: Text(
-        subtitle,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w400,
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
-        ),
-      ),
-      trailing: unread > 0
-          ? Badge(
-              label: Text('$unread'),
-              child: Icon(
-                _isTournament
-                    ? Icons.forum_outlined
-                    : Icons.chat_bubble_outline,
-              ),
-            )
-          : Icon(
-              Icons.chevron_right,
-              color: Theme.of(context).colorScheme.onSurface.withValues(
-                alpha: 0.65,
-              ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        elevation: 0,
+        shadowColor: Colors.black.withValues(alpha: 0.25),
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: _isTournament
+                      ? FutBoliaColors.lime
+                      : const Color(0xFFE8F5E9),
+                  child: Icon(
+                    _isTournament
+                        ? Icons.emoji_events_outlined
+                        : Icons.person_outline,
+                    color: FutBoliaColors.ink,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: FutBoliaColors.ink,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight:
+                              unread > 0 ? FontWeight.w700 : FontWeight.w400,
+                          color: FutBoliaColors.inkMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (unread > 0)
+                  Badge(
+                    label: Text('$unread'),
+                    child: Icon(
+                      _isTournament
+                          ? Icons.forum_outlined
+                          : Icons.chat_bubble_outline,
+                      color: FutBoliaColors.pitchDark,
+                    ),
+                  )
+                else
+                  Icon(
+                    Icons.chevron_right,
+                    color: FutBoliaColors.inkMuted,
+                  ),
+              ],
             ),
+          ),
+        ),
+      ),
     );
   }
 }

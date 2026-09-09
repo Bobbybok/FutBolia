@@ -251,16 +251,34 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   Widget _friendsTab() {
+    TextStyle sectionStyle(BuildContext context) =>
+        Theme.of(context).textTheme.titleMedium!.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            );
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         TextField(
           controller: _search,
+          style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: 'Ajouter un joueur (pseudo)',
+            filled: true,
+            fillColor: Colors.black.withValues(alpha: 0.35),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: FutBoliaColors.lime),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide:
+                  const BorderSide(color: FutBoliaColors.lime, width: 2),
+            ),
             suffixIcon: IconButton(
               onPressed: _searchPlayers,
-              icon: const Icon(Icons.search),
+              icon: const Icon(Icons.search, color: Colors.white),
             ),
           ),
           onSubmitted: (_) => _searchPlayers(),
@@ -269,10 +287,15 @@ class _FriendsScreenState extends State<FriendsScreen>
           const SizedBox(height: 12),
           Text(_error!, style: const TextStyle(color: FutBoliaColors.danger)),
         ],
-        if (_loading) const LinearProgressIndicator(),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: LinearProgressIndicator(),
+          ),
         if (_results.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Text('Résultats', style: Theme.of(context).textTheme.titleMedium),
+          Text('Résultats', style: sectionStyle(context)),
+          const SizedBox(height: 8),
           ..._results.map((user) {
             final status = user['friendship']?.toString() ?? 'none';
             return FriendTile(
@@ -293,43 +316,55 @@ class _FriendsScreenState extends State<FriendsScreen>
         ],
         if (_eventInvites.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Text(
-            'Invitations tournoi / match',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text('Invitations tournoi / match', style: sectionStyle(context)),
+          const SizedBox(height: 8),
           ..._eventInvites.map((row) {
             final inviter =
                 Map<String, dynamic>.from(row['inviter'] as Map? ?? {});
             final kind = row['targetType'] == 'tournament' ? 'Tournoi' : 'Match';
-            return ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(row['targetLabel']?.toString() ?? kind),
-              subtitle: Text(
-                '$kind · invitation de ${staffPseudoOf(inviter)}',
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: 'Accepter',
-                    onPressed: () => _acceptInvite(row['id'] as String),
-                    icon: const Icon(Icons.check),
-                    color: FutBoliaColors.success,
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                child: ListTile(
+                  title: Text(
+                    row['targetLabel']?.toString() ?? kind,
+                    style: const TextStyle(
+                      color: FutBoliaColors.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  IconButton(
-                    tooltip: 'Refuser',
-                    onPressed: () => _declineInvite(row['id'] as String),
-                    icon: const Icon(Icons.close),
-                    color: FutBoliaColors.danger,
+                  subtitle: Text(
+                    '$kind · invitation de ${staffPseudoOf(inviter)}',
+                    style: const TextStyle(color: FutBoliaColors.inkMuted),
                   ),
-                ],
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Accepter',
+                        onPressed: () => _acceptInvite(row['id'] as String),
+                        icon: const Icon(Icons.check),
+                        color: FutBoliaColors.success,
+                      ),
+                      IconButton(
+                        tooltip: 'Refuser',
+                        onPressed: () => _declineInvite(row['id'] as String),
+                        icon: const Icon(Icons.close),
+                        color: FutBoliaColors.danger,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             );
           }),
         ],
         if (_incoming.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Text('Demandes reçues', style: Theme.of(context).textTheme.titleMedium),
+          Text('Demandes reçues', style: sectionStyle(context)),
+          const SizedBox(height: 8),
           ..._incoming.map((row) {
             final user = Map<String, dynamic>.from(row['user'] as Map? ?? {});
             return FriendTile(
@@ -361,7 +396,8 @@ class _FriendsScreenState extends State<FriendsScreen>
         ],
         if (_outgoing.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Text('Demandes envoyées', style: Theme.of(context).textTheme.titleMedium),
+          Text('Demandes envoyées', style: sectionStyle(context)),
+          const SizedBox(height: 8),
           ..._outgoing.map((row) {
             final user = Map<String, dynamic>.from(row['user'] as Map? ?? {});
             return FriendTile(
@@ -374,18 +410,25 @@ class _FriendsScreenState extends State<FriendsScreen>
                     onPressed: () => _report(user),
                     icon: const Icon(Icons.flag_outlined),
                   ),
-                  const Text('En attente'),
+                  const Text(
+                    'En attente',
+                    style: TextStyle(color: FutBoliaColors.inkMuted),
+                  ),
                 ],
               ),
             );
           }),
         ],
         const SizedBox(height: 16),
-        Text('Mes amis', style: Theme.of(context).textTheme.titleMedium),
+        Text('Mes amis', style: sectionStyle(context)),
+        const SizedBox(height: 8),
         if (!_loading && _friends.isEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 8),
-            child: Text('Pas encore d’amis. Cherche un pseudo ci-dessus.'),
+            child: Text(
+              'Pas encore d’amis. Cherche un pseudo ci-dessus.',
+              style: TextStyle(color: Colors.white70),
+            ),
           ),
         ..._friends.map(
           (user) => FriendTile(

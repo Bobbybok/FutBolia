@@ -9,8 +9,7 @@ class FbBrandMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(size * 0.18),
+    return ClipOval(
       child: Image.asset(
         'assets/images/app_icon.png',
         width: size,
