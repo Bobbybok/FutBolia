@@ -211,15 +211,12 @@ class _FriendsScreenState extends State<FriendsScreen>
     try {
       final conv = await _api.openConversation(user['id'] as String);
       if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ConversationScreen(
-            conversationId: conv['id'] as String,
-            friendName: staffPseudoOf(conv['friend'] ?? user),
-            friendId: userIdOf(conv['friend'] ?? user),
-            canSend: conv['canSend'] != false,
-          ),
-        ),
+      await openDirectChat(
+        context,
+        conversationId: conv['id'] as String,
+        friendName: staffPseudoOf(conv['friend'] ?? user),
+        friendId: userIdOf(conv['friend'] ?? user),
+        canSend: conv['canSend'] != false,
       );
       await _reload();
     } on ApiException catch (e) {

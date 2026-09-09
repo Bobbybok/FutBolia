@@ -418,15 +418,12 @@ class _TreatReportDialogState extends State<TreatReportDialog> {
     await _run(() async {
       final conv = await widget.api.openConversation(id);
       if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ConversationScreen(
-            conversationId: conv['id'] as String,
-            friendName: staffPseudoOf(_target),
-            friendId: id,
-            canSend: conv['canSend'] != false,
-          ),
-        ),
+      await openDirectChat(
+        context,
+        conversationId: conv['id'] as String,
+        friendName: staffPseudoOf(_target),
+        friendId: id,
+        canSend: conv['canSend'] != false,
       );
     });
   }
