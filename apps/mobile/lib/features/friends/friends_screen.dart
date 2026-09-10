@@ -236,6 +236,10 @@ class _FriendsScreenState extends State<FriendsScreen>
     );
   }
 
+  void _openProfile(Map<String, dynamic> user) {
+    openPublicProfile(context, userIdOf(user));
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -300,6 +304,7 @@ class _FriendsScreenState extends State<FriendsScreen>
             final status = user['friendship']?.toString() ?? 'none';
             return FriendTile(
               user: user,
+              onTap: () => _openProfile(user),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -325,13 +330,13 @@ class _FriendsScreenState extends State<FriendsScreen>
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Material(
-                color: Colors.white,
+                color: FutBoliaColors.cardDark,
                 borderRadius: BorderRadius.circular(16),
                 child: ListTile(
                   title: Text(
                     row['targetLabel']?.toString() ?? kind,
                     style: const TextStyle(
-                      color: FutBoliaColors.ink,
+                      color: FutBoliaColors.inkDark,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -369,6 +374,7 @@ class _FriendsScreenState extends State<FriendsScreen>
             final user = Map<String, dynamic>.from(row['user'] as Map? ?? {});
             return FriendTile(
               user: user,
+              onTap: () => _openProfile(user),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -402,6 +408,7 @@ class _FriendsScreenState extends State<FriendsScreen>
             final user = Map<String, dynamic>.from(row['user'] as Map? ?? {});
             return FriendTile(
               user: user,
+              onTap: () => _openProfile(user),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -433,6 +440,7 @@ class _FriendsScreenState extends State<FriendsScreen>
         ..._friends.map(
           (user) => FriendTile(
             user: user,
+            onTap: () => _openProfile(user),
             onReport: () => _report(user),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,

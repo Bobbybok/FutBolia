@@ -56,7 +56,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       final detail = await _api.adminGetUser(id);
       if (!mounted) return;
       await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => _AdminUserDetail(user: detail)),
+        MaterialPageRoute(builder: (_) => AdminUserDetailScreen(user: detail)),
       );
       await _searchUsers();
     } on ApiException catch (e) {
@@ -104,16 +104,16 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 }
 
-class _AdminUserDetail extends StatefulWidget {
-  const _AdminUserDetail({required this.user});
+class AdminUserDetailScreen extends StatefulWidget {
+  const AdminUserDetailScreen({required this.user, super.key});
 
   final Map<String, dynamic> user;
 
   @override
-  State<_AdminUserDetail> createState() => _AdminUserDetailState();
+  State<AdminUserDetailScreen> createState() => _AdminUserDetailState();
 }
 
-class _AdminUserDetailState extends State<_AdminUserDetail> {
+class _AdminUserDetailState extends State<AdminUserDetailScreen> {
   late Map<String, dynamic> _user;
   bool _busy = false;
 
@@ -222,10 +222,64 @@ class _AdminUserDetailState extends State<_AdminUserDetail> {
       initial: _profile['city']?.toString() ?? '',
     );
     if (city == null) return;
+    final bio = await _prompt(
+      title: 'Bio',
+      label: 'Description',
+      initial: _profile['bio']?.toString() ?? '',
+    );
+    if (bio == null) return;
     await _run(
       () => _api.adminPatchUser(_id, {
         'firstName': first.trim(),
         'city': city.trim(),
+        'bio': bio.trim(),
+      }),
+    );
+  }
+
+  Future<void> _editSport() async {
+    final height = await _prompt(
+      title: 'Taille (cm)',
+      label: 'Taille',
+      initial: _profile['heightCm']?.toString() ?? '',
+      keyboardType: TextInputType.number,
+    );
+    if (height == null || !mounted) return;
+    final weight = await _prompt(
+      title: 'Poids (kg)',
+      label: 'Poids',
+      initial: _profile['weightKg']?.toString() ?? '',
+      keyboardType: TextInputType.number,
+    );
+    if (weight == null || !mounted) return;
+    final foot = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Pied fort'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, 'left'),
+            child: const Text('Gauche'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, 'right'),
+            child: const Text('Droit'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, 'both'),
+            child: const Text('Les deux'),
+          ),
+        ],
+      ),
+    );
+    if (foot == null) return;
+    await _run(
+      () => _api.adminPatchUser(_id, {
+        if (int.tryParse(height.trim()) != null)
+          'heightCm': int.parse(height.trim()),
+        if (int.tryParse(weight.trim()) != null)
+          'weightKg': int.parse(weight.trim()),
+        'strongFoot': foot,
       }),
     );
   }
@@ -323,7 +377,21 @@ class _AdminUserDetailState extends State<_AdminUserDetail> {
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: _busy ? null : _editProfile,
-            child: const Text('Modifier prénom / ville'),
+            child: const Text('Modifier prénom / ville / bio'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _busy
+                ? null
+                : () => _run(
+                      () => _api.adminPatchUser(_id, {'clearAvatar': true}),
+                    ),
+            child: const Text('Effacer la photo'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _busy ? null : _editSport,
+            child: const Text('Modifier le profil sport'),
           ),
           const SizedBox(height: 8),
           OutlinedButton(

@@ -6,6 +6,8 @@ import '../private_chat/conversation_screen.dart';
 import '../private_chat/conversations_list_screen.dart';
 import 'chat_overlay_controller.dart';
 import 'presentation/tournament_chat_screen.dart';
+import 'presentation/team_chat_screen.dart';
+import 'presentation/inter_team_chat_screen.dart';
 
 const _panelW = 360.0;
 const _panelH = 480.0;
@@ -207,6 +209,26 @@ class _FloatingChatPanelState extends State<FloatingChatPanel> {
           tournamentId: chat.tournamentId!,
           tournamentName: chat.tournamentName ?? 'Tournoi',
           isOrganizer: chat.isOrganizer,
+          canClearForEveryone: chat.canClearForEveryone,
+          canSend: chat.canSend,
+          restoreInInbox: chat.restoreInInbox,
+          onLeave: chat.goBack,
+        );
+      case ChatOverlayPage.team:
+        return TeamChatScreen(
+          key: ValueKey('team-${chat.teamId}'),
+          teamId: chat.teamId!,
+          teamName: chat.teamName ?? 'Équipe',
+          canClearForEveryone: chat.canClearForEveryone,
+          canSend: chat.canSend,
+          restoreInInbox: chat.restoreInInbox,
+          onLeave: chat.goBack,
+        );
+      case ChatOverlayPage.interTeam:
+        return InterTeamChatScreen(
+          key: ValueKey('inter-${chat.tournamentId}'),
+          tournamentId: chat.tournamentId!,
+          tournamentName: chat.tournamentName ?? 'Tournoi',
           canClearForEveryone: chat.canClearForEveryone,
           canSend: chat.canSend,
           restoreInInbox: chat.restoreInInbox,

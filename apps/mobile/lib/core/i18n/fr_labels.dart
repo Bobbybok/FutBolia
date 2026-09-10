@@ -53,6 +53,54 @@ class FrLabels {
         return 'Capitaine';
       case 'player':
         return 'Joueur';
+      case 'host':
+        return 'Hôte';
+      default:
+        return value ?? '';
+    }
+  }
+
+  static String fifaPosition(String? value) {
+    switch (value) {
+      case 'gb':
+        return 'GB';
+      case 'dg':
+        return 'DG';
+      case 'dc':
+        return 'DC';
+      case 'dd':
+        return 'DD';
+      case 'mg':
+        return 'MG';
+      case 'mc':
+        return 'MC';
+      case 'md':
+        return 'MD';
+      case 'mcd':
+        return 'MCD';
+      case 'ag':
+        return 'AG';
+      case 'bu':
+        return 'BU';
+      case 'ad':
+        return 'AD';
+      default:
+        return value ?? '';
+    }
+  }
+
+  static String experience(String? value) {
+    switch (value) {
+      case 'leisure':
+        return 'Loisir';
+      case 'regular':
+        return 'Régulier';
+      case 'competition':
+        return 'Compétition';
+      case 'semi_pro':
+        return 'Semi-pro';
+      case 'pro':
+        return 'Pro';
       default:
         return value ?? '';
     }
@@ -123,7 +171,7 @@ class FrLabels {
       case 'away':
         return 'Équipe B';
       default:
-        return value ?? '';
+        return 'Sans équipe';
     }
   }
 

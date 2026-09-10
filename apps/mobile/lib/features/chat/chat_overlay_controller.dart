@@ -1,7 +1,7 @@
 import 'dart:ui' show Offset;
 import 'package:flutter/foundation.dart';
 
-enum ChatOverlayPage { inbox, dm, tournament }
+enum ChatOverlayPage { inbox, dm, tournament, team, interTeam }
 
 class ChatOverlayController extends ChangeNotifier {
   bool _visible = false;
@@ -21,6 +21,9 @@ class ChatOverlayController extends ChangeNotifier {
   bool canClearForEveryone = false;
   bool restoreInInbox = false;
 
+  String? teamId;
+  String? teamName;
+
   bool get visible => _visible;
   bool get pinned => _pinned;
   Offset? get offset => _offset;
@@ -35,6 +38,12 @@ class ChatOverlayController extends ChangeNotifier {
         return friendName ?? 'Conversation';
       case ChatOverlayPage.tournament:
         return tournamentName ?? 'Tournoi';
+      case ChatOverlayPage.team:
+        return teamName ?? 'Équipe';
+      case ChatOverlayPage.interTeam:
+        return tournamentName != null
+            ? 'Capitaines · $tournamentName'
+            : 'Chat inter-équipes';
     }
   }
 
@@ -84,6 +93,33 @@ class ChatOverlayController extends ChangeNotifier {
     _visible = true;
     page = ChatOverlayPage.tournament;
     notifyListeners();
+  }
+
+  void openTeam({
+    required String teamId,
+    required String teamName,
+    bool canClearForEveryone = false,
+    bool canSend = true,
+    bool restoreInInbox = false,
+  }) {
+    this.teamId = teamId;
+    this.teamName = teamName;
+    this.canClearForEveryone = canClearForEveryone;
+    this.canSend = canSend;
+    this.restoreInInbox = restoreInInbox;
+    _visible = true;
+    page = ChatOverlayPage.team;
+    notifyListeners();
+  }
+
+  void openInterTeam({
+    required String tournamentId,
+    required String tournamentName,
+    bool canClearForEveryone = false,
+    bool canSend = true,
+    bool restoreInInbox = false,
+  }) {
+    openInbox();
   }
 
   void goBack() => openInbox();

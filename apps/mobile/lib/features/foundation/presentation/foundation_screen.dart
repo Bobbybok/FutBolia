@@ -90,9 +90,9 @@ class _FoundationScreenState extends State<FoundationScreen>
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFFE7F5EE),
-              FutBoliaColors.surface,
-              Color(0xFFDCEFE4),
+              FutBoliaColors.pitchDark,
+              FutBoliaColors.surfaceDark,
+              Color(0xFF050807),
             ],
           ),
         ),

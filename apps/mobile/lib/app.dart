@@ -31,28 +31,19 @@ class FutBoliaApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => ChatOverlayController()),
       ],
-      child: Consumer<AppSettings>(
-        builder: (context, appSettings, _) {
-          final overlay = appSettings.darkMode
-              ? SystemUiOverlayStyle.light.copyWith(
-                  statusBarColor: Colors.transparent,
-                )
-              : SystemUiOverlayStyle.dark.copyWith(
-                  statusBarColor: Colors.transparent,
-                );
-          return AnnotatedRegion<SystemUiOverlayStyle>(
-            value: overlay,
-            child: MaterialApp(
-              title: AppConfig.appName,
-              debugShowCheckedModeBanner: false,
-              theme: FutBoliaTheme.light(),
-              darkTheme: FutBoliaTheme.dark(),
-              themeMode: appSettings.themeMode,
-              navigatorKey: futboliaNavigatorKey,
-              home: const _RootGate(),
-            ),
-          );
-        },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light.copyWith(
+          statusBarColor: Colors.transparent,
+        ),
+        child: MaterialApp(
+          title: AppConfig.appName,
+          debugShowCheckedModeBanner: false,
+          theme: FutBoliaTheme.dark(),
+          darkTheme: FutBoliaTheme.dark(),
+          themeMode: ThemeMode.dark,
+          navigatorKey: futboliaNavigatorKey,
+          home: const _RootGate(),
+        ),
       ),
     );
   }

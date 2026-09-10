@@ -16,12 +16,16 @@ import { TournamentChatMessage } from './entities/tournament-chat-message.entity
 import { PostChatMessageDto } from './dto/post-chat-message.dto';
 import { RealtimeDispatchService } from '../realtime/services/realtime-dispatch.service';
 import { RealtimeEvents } from '../realtime/realtime-events';
+import { TeamChatService } from './team-chat.service';
+import { InterTeamChatService } from './inter-team-chat.service';
 
 @Injectable()
 export class ChatService {
   constructor(
     @Inject(TYPEORM_DATA_SOURCE) private readonly dataSource: DataSource | null,
     private readonly realtime: RealtimeDispatchService,
+    private readonly teamChat: TeamChatService,
+    private readonly interTeamChat: InterTeamChatService,
   ) {}
 
   private get db(): DataSource {
@@ -166,7 +170,14 @@ export class ChatService {
       (a, b) =>
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
-    return visible;
+    const teams = await this.teamChat.inbox(userId);
+    const interTeams = await this.interTeamChat.inbox(userId);
+    const merged = [...visible, ...teams, ...interTeams];
+    merged.sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+    return merged;
   }
 
   async unreadCount(userId: string) {
@@ -188,7 +199,9 @@ export class ChatService {
       )
       .andWhere('mem.chat_hidden_at IS NULL')
       .getCount();
-    return { count };
+    const teams = await this.teamChat.unreadCount(userId);
+    const interTeams = await this.interTeamChat.unreadCount(userId);
+    return { count: count + teams + interTeams };
   }
 
   private async unreadForMembership(

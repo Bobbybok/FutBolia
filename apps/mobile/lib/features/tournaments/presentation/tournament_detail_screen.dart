@@ -6,14 +6,14 @@ import '../../../design_system/components/fb_button.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../../core/i18n/fr_labels.dart';
 import '../../auth/application/auth_session.dart';
-import '../../auth/domain/staff_label.dart';
 import '../../invites/invite_friends_sheet.dart';
 import '../../teams/presentation/teams_section.dart';
+import '../../teams/presentation/tournament_roster_section.dart';
 import '../../mercato/presentation/mercato_screen.dart';
 import '../../matches/presentation/matches_screen.dart';
 import '../../chat/presentation/tournament_chat_screen.dart';
-import '../../moderation/report_sheet.dart';
-import '../../profile/presentation/public_profile_screen.dart';
+import '../../admin/admin_permissions.dart';
+import 'edit_tournament_screen.dart';
 
 class TournamentDetailScreen extends StatefulWidget {
   const TournamentDetailScreen({super.key, required this.tournamentId});
@@ -132,10 +132,19 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
     }
 
     final t = _tournament!;
+    final user = context.watch<AuthSession>().user;
     final isMember = t['myRole'] != null;
     final isPrivate = t['visibility'] == 'private';
-    final isOrganizer = t['myRole'] == 'organizer';
-    final isStaff = context.watch<AuthSession>().user?.isStaff ?? false;
+    final isOrganizer = t['isOrganizer'] == true ||
+        t['myRole'] == 'organizer' ||
+        t['createdById']?.toString() == user?.id;
+    final isStaff = user?.isStaff ?? false;
+    final canManage = t['canManage'] == true ||
+        isOrganizer ||
+        (user?.hasPermission(AdminPermissions.manageTournaments) ?? false);
+    final canCreateTeam = t['canCreateTeam'] == true ||
+        canManage ||
+        (isMember && t['mode']?.toString() != 'selection');
 
     return Scaffold(
       appBar: AppBar(title: Text(t['name']?.toString() ?? 'Tournoi')),
@@ -151,11 +160,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
               ),
               FbBadge(
                 label: FrLabels.tournamentMode(t['mode']?.toString()),
-                background: const Color(0xFFE8F5E9),
+                background: FutBoliaColors.badgeSoft,
+                foreground: FutBoliaColors.inkDark,
               ),
               FbBadge(
                 label: FrLabels.visibility(t['visibility']?.toString()),
-                background: const Color(0xFFE3F2FD),
+                background: FutBoliaColors.badgeInfo,
+                foreground: FutBoliaColors.inkDark,
               ),
             ],
           ),
@@ -170,13 +181,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
           Text('Lieu : ${t['location']}'),
           Text('Date : ${_formatDate(t['startsAt'])}'),
           Text('Équipes max : ${t['maxTeams']}'),
-          Text('Titulaires / remplaçants : ${t['startersCount']} / ${t['substitutesCount']}'),
+          Text('Titulaires / remplaçants : ${t['startersCount']} / ${t['startersCount']}'),
           Text('Participants : ${t['membersCount'] ?? _members.length}'),
           const SizedBox(height: 24),
           if (!isMember) ...[
             if (isPrivate)
               Text(
-                'Tournoi privé : tu dois recevoir une invitation de l’organisateur (onglet Amis).',
+                'Tournoi privé : tu dois recevoir une invitation de l’organisateur.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: FutBoliaColors.inkMuted,
                     ),
@@ -187,27 +198,36 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
                 loading: _joining,
                 onPressed: _join,
               ),
-          ] else ...[
+          ] else
             FbBadge(
               label:
                   'Membre · ${FrLabels.memberRole(t['myRole']?.toString())}',
               background: FutBoliaColors.lime,
             ),
-            if (isPrivate && isOrganizer) ...[
-              const SizedBox(height: 16),
-              FbButton(
-                label: 'Inviter des amis',
-                variant: FbButtonVariant.secondary,
-                onPressed: () => showInviteFriendsSheet(
-                  context,
-                  targetType: 'tournament',
-                  targetId: widget.tournamentId,
-                  title: t['name']?.toString() ?? 'Tournoi',
-                ),
+          if (canManage) ...[
+            const SizedBox(height: 16),
+            FbButton(
+              label: 'Inviter un joueur',
+              variant: FbButtonVariant.secondary,
+              onPressed: () => showInviteFriendsSheet(
+                context,
+                targetType: 'tournament',
+                targetId: widget.tournamentId,
+                title: t['name']?.toString() ?? 'Tournoi',
               ),
-            ],
+            ),
           ],
-          if (isMember) ...[
+          if (isMember || canManage) ...[
+            const SizedBox(height: 28),
+            TeamsSection(
+              tournamentId: widget.tournamentId,
+              canManage: canCreateTeam,
+              members: _members,
+              isOrganizer: canManage,
+              mode: t['mode']?.toString() ?? 'classic',
+            ),
+          ],
+          if (isMember || canManage) ...[
             const SizedBox(height: 28),
             FbButton(
               label: 'Matchs & classement',
@@ -218,7 +238,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
                   MaterialPageRoute(
                     builder: (_) => MatchesScreen(
                       tournamentId: widget.tournamentId,
-                      isOrganizer: t['myRole'] == 'organizer',
+                      isOrganizer: canManage,
                     ),
                   ),
                 );
@@ -244,7 +264,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
               },
             ),
           ],
-          if (isMember) ...[
+          if (isMember || canManage) ...[
             const SizedBox(height: 16),
             if (t['mode'] == 'selection') ...[
               FbButton(
@@ -264,7 +284,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
                     if (isMine) {
                       mySelectorTeam ??= team;
                       offerTeams.add(team);
-                    } else if (role == 'organizer') {
+                    } else if (role == 'organizer' || canManage) {
                       offerTeams.add(team);
                     }
                   }
@@ -273,7 +293,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
                       builder: (_) => MercatoScreen(
                         tournamentId: widget.tournamentId,
                         canSendOffers:
-                            mySelectorTeam != null || role == 'organizer',
+                            mySelectorTeam != null || canManage,
                         selectorTeamId: mySelectorTeam?['id'] as String?,
                         offerTeams: offerTeams,
                       ),
@@ -284,48 +304,51 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
               ),
               const SizedBox(height: 16),
             ],
-            TeamsSection(
+            TournamentRosterSection(
               tournamentId: widget.tournamentId,
-              canManage: true,
               members: _members,
-              isOrganizer: t['myRole'] == 'organizer',
-              mode: t['mode']?.toString() ?? 'classic',
+              canManage: canManage,
+              createdById: t['createdById']?.toString(),
+              onChanged: _load,
             ),
           ],
-          const SizedBox(height: 28),
-          Text('Participants', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
-          if (_members.isEmpty)
-            Text(
-              'Aucun participant visible.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: FutBoliaColors.inkMuted,
-                  ),
-            )
-          else
-            ..._members.map(
-              (m) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(staffPseudoOf(m['user'])),
-                subtitle: Text(FrLabels.memberRole(m['role']?.toString())),
-                trailing: IconButton(
-                  tooltip: 'Signaler',
-                  onPressed: () {
-                    final id = userIdOf(m);
-                    if (id == null) return;
-                    showReportSheet(
-                      context,
-                      type: 'user',
-                      targetId: id,
-                      title: 'Signaler ${staffPseudoOf(m['user'])}',
-                    );
-                  },
-                  icon: const Icon(Icons.flag_outlined),
-                ),
-              ),
+          if (isMember && t['createdById']?.toString() != user?.id) ...[
+            const SizedBox(height: 20),
+            FbButton(
+              label: 'Quitter le tournoi',
+              variant: FbButtonVariant.secondary,
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  await context
+                      .read<AuthSession>()
+                      .api
+                      .leaveTournament(widget.tournamentId);
+                  if (!mounted) return;
+                  navigator.pop();
+                } on ApiException catch (e) {
+                  if (!mounted) return;
+                  messenger.showSnackBar(SnackBar(content: Text(e.message)));
+                }
+              },
             ),
-          if (t['myRole'] == 'organizer') ...[
+          ],
+          if (canManage) ...[
             const SizedBox(height: 36),
+            FbButton(
+              label: 'Modifier le tournoi',
+              variant: FbButtonVariant.secondary,
+              onPressed: () async {
+                final ok = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(
+                    builder: (_) => EditTournamentScreen(tournament: t),
+                  ),
+                );
+                if (ok == true && mounted) _load();
+              },
+            ),
+            const SizedBox(height: 12),
             OutlinedButton(
               onPressed: _deleteTournament,
               style: OutlinedButton.styleFrom(

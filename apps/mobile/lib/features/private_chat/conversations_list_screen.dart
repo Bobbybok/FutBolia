@@ -10,6 +10,7 @@ import '../auth/application/auth_session.dart';
 import '../chat/chat_actions.dart';
 import '../chat/chat_overlay_controller.dart';
 import '../chat/presentation/tournament_chat_screen.dart';
+import '../chat/presentation/team_chat_screen.dart';
 import '../moderation/report_sheet.dart';
 import '../profile/presentation/public_profile_screen.dart';
 import '../tournaments/presentation/tournament_detail_screen.dart';
@@ -60,7 +61,9 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
           .map((c) => {...c, 'kind': c['kind'] ?? 'dm'})
           .toList();
       final tournaments = results[1];
-      final items = [...tournaments, ...dms];
+      final items = [...tournaments, ...dms]
+          .where((e) => e['kind'] != 'inter_team')
+          .toList();
       items.sort((a, b) => _updatedAt(b).compareTo(_updatedAt(a)));
       setState(() => _items = items);
     } catch (_) {}
@@ -87,7 +90,9 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
           .map((c) => {...c, 'kind': c['kind'] ?? 'dm'})
           .toList();
       final tournaments = results[1];
-      final items = [...tournaments, ...dms];
+      final items = [...tournaments, ...dms]
+          .where((e) => e['kind'] != 'inter_team')
+          .toList();
       items.sort((a, b) => _updatedAt(b).compareTo(_updatedAt(a)));
       setState(() => _items = items);
     } catch (e) {
@@ -110,6 +115,16 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
         isOrganizer: conversation['isOrganizer'] == true,
         canClearForEveryone: false,
       );
+    } else if (conversation['kind'] == 'team') {
+      openTeamChat(
+        context,
+        teamId: conversation['teamId']?.toString() ??
+            conversation['id'] as String,
+        teamName: conversation['name']?.toString() ?? 'Équipe',
+        canClearForEveryone: false,
+      );
+    } else if (conversation['kind'] == 'inter_team') {
+      return;
     } else {
       openDirectChat(
         context,
@@ -164,6 +179,89 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                 onTap: () async {
                   Navigator.pop(ctx);
                   await _hideTournament(tournamentId);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+    if (conversation['kind'] == 'team') {
+      final teamId =
+          conversation['teamId']?.toString() ?? conversation['id'] as String;
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        useRootNavigator: true,
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.layers_clear_outlined),
+                title: const Text('Vider le chat'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _clearTeam(teamId);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Supprimer la conversation'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _hideTeam(teamId);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+    if (conversation['kind'] == 'inter_team') {
+      final tournamentId =
+          conversation['tournamentId']?.toString() ??
+              conversation['id'] as String;
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        useRootNavigator: true,
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.emoji_events_outlined),
+                title: const Text('Ouvrir le tournoi'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  final overlay = context.read<ChatOverlayController>();
+                  if (!overlay.pinned) overlay.close();
+                  Navigator.of(context, rootNavigator: true).push(
+                    MaterialPageRoute(
+                      builder: (_) => TournamentDetailScreen(
+                        tournamentId: tournamentId,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.layers_clear_outlined),
+                title: const Text('Vider le chat'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _clearInterTeam(tournamentId);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Supprimer la conversation'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _hideInterTeam(tournamentId);
                 },
               ),
             ],
@@ -275,6 +373,50 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
     await _run(() => _api.hideTournamentChat(id));
   }
 
+  Future<void> _clearTeam(String id) async {
+    final ok = await confirmChatAction(
+      context,
+      title: 'Vider le chat ?',
+      body: 'L’historique disparaît pour toi. Les autres membres le gardent.',
+      confirmLabel: 'Vider',
+    );
+    if (!ok) return;
+    await _run(() => _api.clearTeamChat(id));
+  }
+
+  Future<void> _hideTeam(String id) async {
+    final ok = await confirmChatAction(
+      context,
+      title: 'Supprimer la conversation ?',
+      body: 'Elle disparaît de tes chats. Réouvre-la depuis l’équipe.',
+      confirmLabel: 'Supprimer',
+    );
+    if (!ok) return;
+    await _run(() => _api.hideTeamChat(id));
+  }
+
+  Future<void> _clearInterTeam(String id) async {
+    final ok = await confirmChatAction(
+      context,
+      title: 'Vider le chat ?',
+      body: 'L’historique disparaît pour toi. Les autres capitaines le gardent.',
+      confirmLabel: 'Vider',
+    );
+    if (!ok) return;
+    await _run(() => _api.clearInterTeamChat(id));
+  }
+
+  Future<void> _hideInterTeam(String id) async {
+    final ok = await confirmChatAction(
+      context,
+      title: 'Supprimer la conversation ?',
+      body: 'Elle disparaît de tes chats. Réouvre-la depuis le tournoi.',
+      confirmLabel: 'Supprimer',
+    );
+    if (!ok) return;
+    await _run(() => _api.hideInterTeamChat(id));
+  }
+
   @override
   Widget build(BuildContext context) {
     final list = RefreshIndicator(
@@ -329,7 +471,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                 children: [
                   const Expanded(child: FbBrandHeader()),
                   Text(
-                    'Messages',
+                    'Chat',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,

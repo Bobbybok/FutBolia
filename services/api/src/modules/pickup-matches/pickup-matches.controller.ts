@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -18,6 +19,8 @@ import {
 import { CreatePickupMatchDto } from './dto/create-pickup-match.dto';
 import { JoinPickupMatchDto } from './dto/join-pickup-match.dto';
 import { ScorePickupMatchDto } from './dto/score-pickup-match.dto';
+import { AddPickupMemberDto } from './dto/add-pickup-member.dto';
+import { UpdatePickupMemberDto } from './dto/update-pickup-member.dto';
 
 @Controller('pickup-matches')
 export class PickupMatchesController {
@@ -66,6 +69,42 @@ export class PickupMatchesController {
     return this.pickupMatchesService.leave(id, user.id);
   }
 
+  @Post(':id/members')
+  @UseGuards(JwtAuthGuard)
+  addMember(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: AddPickupMemberDto,
+  ) {
+    return this.pickupMatchesService.addMember(id, user.id, dto);
+  }
+
+  @Patch(':id/members/:userId')
+  @UseGuards(JwtAuthGuard)
+  updateMember(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdatePickupMemberDto,
+  ) {
+    return this.pickupMatchesService.updateMemberSide(
+      id,
+      user.id,
+      userId,
+      dto,
+    );
+  }
+
+  @Delete(':id/members/:userId')
+  @UseGuards(JwtAuthGuard)
+  kickMember(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.pickupMatchesService.kickMember(id, user.id, userId);
+  }
+
   @Patch(':id/score')
   @UseGuards(JwtAuthGuard)
   score(
@@ -80,5 +119,11 @@ export class PickupMatchesController {
   @UseGuards(JwtAuthGuard)
   cancel(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.pickupMatchesService.cancel(id, user.id);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  remove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.pickupMatchesService.remove(id, user.id);
   }
 }

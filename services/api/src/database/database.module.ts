@@ -8,6 +8,8 @@ import {
 import { ensureSchema } from './ensure-schema';
 import { User } from '../modules/users/entities/user.entity';
 import { Profile } from '../modules/users/entities/profile.entity';
+import { ProfileAvatar } from '../modules/users/entities/profile-avatar.entity';
+import { ProfileHiddenItem } from '../modules/users/entities/profile-hidden-item.entity';
 import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 import { AuthToken } from '../modules/auth/entities/auth-token.entity';
 import { Tournament } from '../modules/tournaments/entities/tournament.entity';
@@ -19,6 +21,10 @@ import { Match } from '../modules/matches/entities/match.entity';
 import { PickupMatch } from '../modules/pickup-matches/entities/pickup-match.entity';
 import { PickupMatchMember } from '../modules/pickup-matches/entities/pickup-match-member.entity';
 import { TournamentChatMessage } from '../modules/chat/entities/tournament-chat-message.entity';
+import { TeamChatMessage } from '../modules/chat/entities/team-chat-message.entity';
+import { TeamChatReceipt } from '../modules/chat/entities/team-chat-receipt.entity';
+import { InterTeamChatMessage } from '../modules/chat/entities/inter-team-chat-message.entity';
+import { InterTeamChatReceipt } from '../modules/chat/entities/inter-team-chat-receipt.entity';
 import { ForumPost } from '../modules/forum/entities/forum-post.entity';
 import { ForumReply } from '../modules/forum/entities/forum-reply.entity';
 import { AdminPermission } from '../modules/admin/entities/admin-permission.entity';
@@ -60,6 +66,8 @@ export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
           entities: [
             User,
             Profile,
+            ProfileAvatar,
+            ProfileHiddenItem,
             RefreshToken,
             AuthToken,
             Tournament,
@@ -71,6 +79,10 @@ export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
             PickupMatch,
             PickupMatchMember,
             TournamentChatMessage,
+            TeamChatMessage,
+            TeamChatReceipt,
+            InterTeamChatMessage,
+            InterTeamChatReceipt,
             ForumPost,
             ForumReply,
             AdminPermission,

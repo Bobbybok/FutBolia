@@ -198,6 +198,29 @@ export class FriendsService {
     return { success: true };
   }
 
+  async relation(actorId: string, otherId: string) {
+    if (actorId === otherId) {
+      return { friendship: 'self' as const };
+    }
+    const row = await this.findPair(actorId, otherId);
+    if (!row) {
+      return { friendship: 'none' as const };
+    }
+    if (row.status === FriendRequestStatus.ACCEPTED) {
+      return { friendship: 'friends' as const, requestId: row.id };
+    }
+    if (row.status === FriendRequestStatus.PENDING) {
+      return {
+        friendship:
+          row.fromUserId === actorId
+            ? ('pending_sent' as const)
+            : ('pending_received' as const),
+        requestId: row.id,
+      };
+    }
+    return { friendship: 'none' as const };
+  }
+
   async areFriends(userA: string, userB: string) {
     if (userA === userB) return false;
     const row = await this.findPair(userA, userB);

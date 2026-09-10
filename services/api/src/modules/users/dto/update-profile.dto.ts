@@ -1,4 +1,6 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEnum,
   IsInt,
   IsOptional,
@@ -9,7 +11,13 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { PlayerPosition, StrongFoot } from '../../../common/enums';
+import {
+  AvailabilitySlot,
+  ExperienceLevel,
+  FifaPosition,
+  PlayerPosition,
+  StrongFoot,
+} from '../../../common/enums';
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -36,8 +44,42 @@ export class UpdateProfileDto {
   position?: PlayerPosition | null;
 
   @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @IsEnum(FifaPosition, { each: true })
+  positions?: FifaPosition[];
+
+  @IsOptional()
   @IsEnum(StrongFoot)
   strongFoot?: StrongFoot | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(120)
+  @Max(230)
+  heightCm?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(40)
+  @Max(160)
+  weightKg?: number | null;
+
+  @IsOptional()
+  @IsEnum(ExperienceLevel)
+  experienceLevel?: ExperienceLevel | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1970)
+  @Max(2035)
+  playingSinceYear?: number | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(4)
+  @IsEnum(AvailabilitySlot, { each: true })
+  availability?: AvailabilitySlot[];
 
   @IsOptional()
   @IsInt()

@@ -16,13 +16,13 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _email = TextEditingController();
+  final _login = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
 
   @override
   void dispose() {
-    _email.dispose();
+    _login.dispose();
     _password.dispose();
     super.dispose();
   }
@@ -30,8 +30,17 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     setState(() => _loading = true);
     try {
+      final raw = _login.text.trim();
+      if (raw.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Indique ton e-mail ou ton pseudo')),
+        );
+        return;
+      }
+      final asEmail = raw.contains('@');
       await context.read<AuthSession>().login(
-            email: _email.text,
+            email: asEmail ? raw : null,
+            pseudo: asEmail ? null : raw,
             password: _password.text,
           );
     } catch (_) {
@@ -72,13 +81,16 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 14),
             TextField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
+              controller: _login,
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.next,
               autocorrect: false,
+              enableSuggestions: false,
+              textCapitalization: TextCapitalization.none,
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
-                hintText: 'E-mail',
-                prefixIcon: Icon(Icons.mail_outline),
+                hintText: 'E-mail ou pseudo',
+                prefixIcon: Icon(Icons.person_outline),
               ),
             ),
             const SizedBox(height: 14),

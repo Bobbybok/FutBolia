@@ -16,6 +16,7 @@ import {
   GlobalRole,
   isPlatformAdmin,
   MatchStatus,
+  PickupMatchStatus,
   ReportReasonCode,
   ReportStatus,
   ReportType,
@@ -37,6 +38,8 @@ import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentMember } from '../tournaments/entities/tournament-member.entity';
 import { Team } from '../teams/entities/team.entity';
 import { Match } from '../matches/entities/match.entity';
+import { PickupMatch } from '../pickup-matches/entities/pickup-match.entity';
+import { ProfileAvatar } from '../users/entities/profile-avatar.entity';
 import { TournamentChatMessage } from '../chat/entities/tournament-chat-message.entity';
 import { DirectMessage } from '../private-chat/entities/direct-message.entity';
 import { RefreshToken } from '../auth/entities/refresh-token.entity';
@@ -46,11 +49,15 @@ import {
   BanUserDto,
   CreateReportDto,
   ForceTeamStatusDto,
+  PatchAdminMatchDto,
+  PatchAdminPickupDto,
+  PatchAdminTeamDto,
   PatchAdminUserDto,
   PatchTournamentDto,
   ResolveReportDto,
   TimeoutUserDto,
 } from './dto/admin.dto';
+import { serializeSportProfile, fifaToLegacyPosition } from '../users/profile-view';
 
 @Injectable()
 export class AdminService {
@@ -100,6 +107,14 @@ export class AdminService {
 
   private get matches(): Repository<Match> {
     return this.db.getRepository(Match);
+  }
+
+  private get pickups(): Repository<PickupMatch> {
+    return this.db.getRepository(PickupMatch);
+  }
+
+  private get avatars(): Repository<ProfileAvatar> {
+    return this.db.getRepository(ProfileAvatar);
   }
 
   private get messages(): Repository<TournamentChatMessage> {
@@ -163,11 +178,7 @@ export class AdminService {
     return {
       ...this.toListUser(user, permissions),
       emailVerified: Boolean(user.emailVerifiedAt),
-      profile: {
-        pseudo: user.profile.pseudo,
-        firstName: user.profile.firstName,
-        city: user.profile.city,
-      },
+      profile: serializeSportProfile(user.profile),
       createdAt: user.createdAt,
       activeSessions: sessions,
       tournaments: memberships.map((m) => ({
@@ -377,7 +388,16 @@ export class AdminService {
       Boolean(dto.pseudo) ||
       Boolean(dto.password) ||
       dto.firstName !== undefined ||
-      dto.city !== undefined;
+      dto.city !== undefined ||
+      dto.bio !== undefined ||
+      dto.positions !== undefined ||
+      dto.strongFoot !== undefined ||
+      dto.heightCm !== undefined ||
+      dto.weightKg !== undefined ||
+      dto.experienceLevel !== undefined ||
+      dto.playingSinceYear !== undefined ||
+      dto.availability !== undefined ||
+      dto.clearAvatar === true;
     if (!hasChange) {
       throw new BadRequestException('Rien à modifier');
     }
@@ -423,6 +443,46 @@ export class AdminService {
     if (dto.city !== undefined) {
       profile.city = dto.city?.trim() || null;
       changes.city = profile.city;
+    }
+    if (dto.bio !== undefined) {
+      profile.bio = dto.bio?.trim() || null;
+      changes.bio = profile.bio;
+    }
+    if (dto.positions !== undefined) {
+      const unique = [...new Set(dto.positions)];
+      profile.positions = unique;
+      profile.position = unique[0] ? fifaToLegacyPosition(unique[0]) : null;
+      changes.positions = unique;
+    }
+    if (dto.strongFoot !== undefined) {
+      profile.strongFoot = dto.strongFoot;
+      changes.strongFoot = dto.strongFoot;
+    }
+    if (dto.heightCm !== undefined) {
+      profile.heightCm = dto.heightCm;
+      changes.heightCm = dto.heightCm;
+    }
+    if (dto.weightKg !== undefined) {
+      profile.weightKg = dto.weightKg;
+      changes.weightKg = dto.weightKg;
+    }
+    if (dto.experienceLevel !== undefined) {
+      profile.experienceLevel = dto.experienceLevel;
+      changes.experienceLevel = dto.experienceLevel;
+    }
+    if (dto.playingSinceYear !== undefined) {
+      profile.playingSinceYear = dto.playingSinceYear;
+      changes.playingSinceYear = dto.playingSinceYear;
+    }
+    if (dto.availability !== undefined) {
+      profile.availability = [...new Set(dto.availability)];
+      changes.availability = profile.availability;
+    }
+    if (dto.clearAvatar) {
+      const avatar = await this.avatars.findOne({ where: { userId } });
+      if (avatar) await this.avatars.remove(avatar);
+      profile.avatarUrl = null;
+      changes.avatar = null;
     }
 
     await this.users.save(user);
@@ -499,13 +559,27 @@ export class AdminService {
   ) {
     const tournament = await this.requireTournament(tournamentId);
     if (dto.name) tournament.name = dto.name.trim();
+    if (dto.description !== undefined) {
+      tournament.description = dto.description?.trim() || null;
+    }
+    if (dto.startsAt) tournament.startsAt = new Date(dto.startsAt);
+    if (dto.location) tournament.location = dto.location.trim();
+    if (dto.maxTeams !== undefined) tournament.maxTeams = dto.maxTeams;
+    if (dto.startersCount !== undefined) {
+      tournament.startersCount = dto.startersCount;
+    }
+    tournament.substitutesCount = tournament.startersCount;
+    if (dto.rulesText !== undefined) {
+      tournament.rulesText = dto.rulesText?.trim() || null;
+    }
+    if (dto.mode) tournament.mode = dto.mode;
+    if (dto.visibility) tournament.visibility = dto.visibility;
     if (dto.status) tournament.status = dto.status;
     await this.tournaments.save(tournament);
     await this.audit(actor.id, 'patch_tournament', tournamentId, {
-      name: dto.name ?? null,
-      status: dto.status ?? null,
+      ...dto,
     });
-    return { success: true };
+    return { success: true, id: tournament.id };
   }
 
   async deleteTournament(actor: AuthUser, tournamentId: string) {
@@ -562,6 +636,126 @@ export class AdminService {
       status: dto.status,
     });
     return { id: team.id, status: team.status };
+  }
+
+  async patchTeam(actor: AuthUser, teamId: string, dto: PatchAdminTeamDto) {
+    const team = await this.teams.findOne({ where: { id: teamId } });
+    if (!team) {
+      throw new NotFoundException('Équipe introuvable');
+    }
+    if (dto.name) team.name = dto.name.trim();
+    if (dto.status) team.status = dto.status;
+    await this.teams.save(team);
+    await this.audit(actor.id, 'patch_team', teamId, { ...dto });
+    return { id: team.id, name: team.name, status: team.status };
+  }
+
+  async deleteTeam(actor: AuthUser, teamId: string) {
+    const team = await this.teams.findOne({ where: { id: teamId } });
+    if (!team) {
+      throw new NotFoundException('Équipe introuvable');
+    }
+    await this.teams.remove(team);
+    await this.audit(actor.id, 'delete_team', teamId, {});
+    return { success: true };
+  }
+
+  async patchMatch(actor: AuthUser, matchId: string, dto: PatchAdminMatchDto) {
+    const match = await this.matches.findOne({ where: { id: matchId } });
+    if (!match) {
+      throw new NotFoundException('Match introuvable');
+    }
+    if (dto.scheduledAt !== undefined) {
+      match.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
+    }
+    if (dto.homeScore !== undefined) match.homeScore = dto.homeScore;
+    if (dto.awayScore !== undefined) match.awayScore = dto.awayScore;
+    if (dto.status) {
+      match.status = dto.status;
+      if (dto.status === MatchStatus.CANCELLED) {
+        match.homeScore = null;
+        match.awayScore = null;
+      }
+    } else if (match.homeScore != null && match.awayScore != null) {
+      match.status = MatchStatus.FINISHED;
+    }
+    await this.matches.save(match);
+    await this.audit(actor.id, 'patch_match', matchId, { ...dto });
+    return {
+      id: match.id,
+      status: match.status,
+      homeScore: match.homeScore,
+      awayScore: match.awayScore,
+      scheduledAt: match.scheduledAt,
+    };
+  }
+
+  async deleteMatch(actor: AuthUser, matchId: string) {
+    const match = await this.matches.findOne({ where: { id: matchId } });
+    if (!match) {
+      throw new NotFoundException('Match introuvable');
+    }
+    await this.matches.remove(match);
+    await this.audit(actor.id, 'delete_match', matchId, {});
+    return { success: true };
+  }
+
+  async listPickupMatches() {
+    const rows = await this.pickups.find({
+      relations: { createdBy: { profile: true } },
+      order: { scheduledAt: 'DESC' },
+      take: 100,
+    });
+    return rows.map((m) => ({
+      id: m.id,
+      location: m.location,
+      scheduledAt: m.scheduledAt,
+      status: m.status,
+      playersPerTeam: m.playersPerTeam,
+      visibility: m.visibility,
+      homeScore: m.homeScore,
+      awayScore: m.awayScore,
+      host: {
+        id: m.createdById,
+        pseudo: m.createdBy?.profile?.pseudo ?? '',
+      },
+    }));
+  }
+
+  async patchPickup(actor: AuthUser, id: string, dto: PatchAdminPickupDto) {
+    const match = await this.pickups.findOne({ where: { id } });
+    if (!match) {
+      throw new NotFoundException('Match libre introuvable');
+    }
+    if (dto.location) match.location = dto.location.trim();
+    if (dto.scheduledAt) match.scheduledAt = new Date(dto.scheduledAt);
+    if (dto.playersPerTeam !== undefined) {
+      match.playersPerTeam = dto.playersPerTeam;
+    }
+    if (dto.homeScore !== undefined) match.homeScore = dto.homeScore;
+    if (dto.awayScore !== undefined) match.awayScore = dto.awayScore;
+    if (dto.status) {
+      match.status = dto.status;
+      if (dto.status === PickupMatchStatus.CANCELLED) {
+        match.homeScore = null;
+        match.awayScore = null;
+      }
+    } else if (match.homeScore != null && match.awayScore != null) {
+      match.status = PickupMatchStatus.FINISHED;
+    }
+    await this.pickups.save(match);
+    await this.audit(actor.id, 'patch_pickup', id, { ...dto });
+    return { success: true, id: match.id, status: match.status };
+  }
+
+  async deletePickup(actor: AuthUser, id: string) {
+    const match = await this.pickups.findOne({ where: { id } });
+    if (!match) {
+      throw new NotFoundException('Match libre introuvable');
+    }
+    await this.pickups.remove(match);
+    await this.audit(actor.id, 'delete_pickup', id, {});
+    return { success: true };
   }
 
   async listTournamentTeams(tournamentId: string) {

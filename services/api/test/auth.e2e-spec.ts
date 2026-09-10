@@ -73,4 +73,14 @@ describe('Auth (e2e)', () => {
 
     expect(res.body.accessToken).toBeDefined();
   });
+
+  it('logs in with the account pseudo', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ pseudo, password })
+      .expect(200);
+
+    expect(res.body.accessToken).toBeDefined();
+    expect(res.body.user.profile.pseudo).toBe(pseudo);
+  });
 });

@@ -26,6 +26,14 @@ export class RealtimeDispatchService {
     return `tournament:${tournamentId}`;
   }
 
+  teamRoom(teamId: string) {
+    return `team:${teamId}`;
+  }
+
+  interTeamRoom(tournamentId: string) {
+    return `interTeam:${tournamentId}`;
+  }
+
   emitToRoom(room: string, event: string, payload: unknown) {
     this.server?.to(room).emit(event, payload);
   }

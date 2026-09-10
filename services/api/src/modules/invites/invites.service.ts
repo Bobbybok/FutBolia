@@ -6,32 +6,32 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, ILike, In, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
 import {
   EventInviteStatus,
   EventInviteTargetType,
   TournamentMemberRole,
-  TournamentVisibility,
   toPlatformRole,
 } from '../../common/enums';
-import { FriendsService } from '../friends/friends.service';
 import { TournamentsService } from '../tournaments/tournaments.service';
 import { PickupMatchesService } from '../pickup-matches/pickup-matches.service';
 import { Tournament } from '../tournaments/entities/tournament.entity';
 import { TournamentMember } from '../tournaments/entities/tournament-member.entity';
 import { PickupMatch } from '../pickup-matches/entities/pickup-match.entity';
+import { PickupMatchMember } from '../pickup-matches/entities/pickup-match-member.entity';
 import { User } from '../users/entities/user.entity';
+import { Profile } from '../users/entities/profile.entity';
 import { EventInvite } from './entities/event-invite.entity';
 import { CreateEventInvitesDto } from './dto/create-event-invites.dto';
 import { RealtimeDispatchService } from '../realtime/services/realtime-dispatch.service';
 import { RealtimeEvents } from '../realtime/realtime-events';
+import { actorCanManageTournaments } from '../../common/staff-access';
 
 @Injectable()
 export class InvitesService {
   constructor(
     @Inject(TYPEORM_DATA_SOURCE) private readonly dataSource: DataSource | null,
-    private readonly friends: FriendsService,
     private readonly tournaments: TournamentsService,
     private readonly pickupMatches: PickupMatchesService,
     private readonly realtime: RealtimeDispatchService,
@@ -64,19 +64,29 @@ export class InvitesService {
     return this.db.getRepository(User);
   }
 
+  private get profiles(): Repository<Profile> {
+    return this.db.getRepository(Profile);
+  }
+
+  private get pickupMembers(): Repository<PickupMatchMember> {
+    return this.db.getRepository(PickupMatchMember);
+  }
+
   async create(inviterId: string, dto: CreateEventInvitesDto) {
     await this.assertCanInvite(inviterId, dto.targetType, dto.targetId);
 
-    const uniqueFriendIds = [...new Set(dto.friendIds)].filter(
-      (id) => id !== inviterId,
-    );
-    if (uniqueFriendIds.length === 0) {
-      throw new BadRequestException('Sélectionne au moins un ami');
+    const uniqueUserIds = await this.resolveInviteeIds(inviterId, dto);
+    if (uniqueUserIds.length === 0) {
+      throw new BadRequestException('Choisis au moins un joueur (pseudo)');
     }
 
     const created: EventInvite[] = [];
-    for (const friendId of uniqueFriendIds) {
-      await this.friends.assertFriends(inviterId, friendId);
+    for (const friendId of uniqueUserIds) {
+      if (
+        await this.isAlreadyMember(dto.targetType, dto.targetId, friendId)
+      ) {
+        continue;
+      }
 
       const existing = await this.invites.findOne({
         where: {
@@ -233,20 +243,18 @@ export class InvitesService {
       if (!tournament) {
         throw new NotFoundException('Tournoi introuvable');
       }
-      if (tournament.visibility !== TournamentVisibility.PRIVATE) {
-        throw new BadRequestException(
-          'Les invitations sont réservées aux tournois privés',
-        );
-      }
       const member = await this.tournamentMembers.findOne({
         where: { tournamentId: targetId, userId },
       });
       const isOrganizer =
         tournament.createdById === userId ||
         member?.role === TournamentMemberRole.ORGANIZER;
-      if (!isOrganizer) {
+      if (
+        !isOrganizer &&
+        !(await actorCanManageTournaments(this.db, userId))
+      ) {
         throw new ForbiddenException(
-          'Seul l’organisateur peut inviter des amis',
+          'Seul l’organisateur peut inviter des joueurs',
         );
       }
       return;
@@ -258,14 +266,54 @@ export class InvitesService {
     if (!match) {
       throw new NotFoundException('Match introuvable');
     }
-    if (match.visibility !== TournamentVisibility.PRIVATE) {
-      throw new BadRequestException(
-        'Les invitations sont réservées aux matchs privés',
-      );
+    if (
+      match.createdById !== userId &&
+      !(await actorCanManageTournaments(this.db, userId))
+    ) {
+      throw new ForbiddenException('Seul l’hôte peut inviter des joueurs');
     }
-    if (match.createdById !== userId) {
-      throw new ForbiddenException('Seul l’hôte peut inviter des amis');
+  }
+
+  private async resolveInviteeIds(
+    inviterId: string,
+    dto: CreateEventInvitesDto,
+  ) {
+    const ids = new Set<string>([
+      ...(dto.userIds ?? []),
+      ...(dto.friendIds ?? []),
+    ]);
+
+    for (const raw of dto.pseudos ?? []) {
+      const pseudo = raw.trim();
+      if (pseudo.length < 2) continue;
+      const profile = await this.profiles.findOne({
+        where: { pseudo: ILike(pseudo) },
+        relations: { user: true },
+      });
+      if (!profile?.user || profile.user.deletedAt) {
+        throw new NotFoundException(`Aucun joueur « ${pseudo} »`);
+      }
+      ids.add(profile.userId);
     }
+
+    return [...ids].filter((id) => id !== inviterId);
+  }
+
+  private async isAlreadyMember(
+    targetType: EventInviteTargetType,
+    targetId: string,
+    userId: string,
+  ) {
+    if (targetType === EventInviteTargetType.TOURNAMENT) {
+      const row = await this.tournamentMembers.findOne({
+        where: { tournamentId: targetId, userId },
+      });
+      return Boolean(row);
+    }
+    const row = await this.pickupMembers.findOne({
+      where: { matchId: targetId, userId },
+    });
+    return Boolean(row);
   }
 
   private async requireInvite(id: string) {
@@ -339,7 +387,7 @@ export class InvitesService {
     const event = isTournament
       ? RealtimeEvents.tournamentInvite
       : RealtimeEvents.pickupInvite;
-    const from = invite.inviter.pseudo || 'Un ami';
+    const from = invite.inviter.pseudo || 'Un joueur';
     const label = invite.targetLabel;
     await this.realtime.notifyUser({
       userId: invite.invitee.id,

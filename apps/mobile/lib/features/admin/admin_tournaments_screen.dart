@@ -4,6 +4,7 @@ import '../../core/network/api_client.dart';
 import '../../design_system/tokens/colors.dart';
 import '../auth/application/auth_session.dart';
 import '../auth/domain/staff_label.dart';
+import '../tournaments/presentation/edit_tournament_screen.dart';
 
 class AdminTournamentsScreen extends StatefulWidget {
   const AdminTournamentsScreen({super.key});
@@ -139,6 +140,55 @@ class _AdminTournamentDetailState extends State<_AdminTournamentDetail> {
     }
   }
 
+  Future<String?> _prompt({
+    required String title,
+    required String initial,
+  }) async {
+    final controller = TextEditingController(text: initial);
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(controller: controller, autofocus: true),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return value;
+  }
+
+  Future<void> _editMatchScore(Map<String, dynamic> match) async {
+    final home = await _prompt(
+      title: 'Score domicile',
+      initial: match['homeScore']?.toString() ?? '0',
+    );
+    if (home == null || !mounted) return;
+    final away = await _prompt(
+      title: 'Score extérieur',
+      initial: match['awayScore']?.toString() ?? '0',
+    );
+    if (away == null) return;
+    final h = int.tryParse(home.trim());
+    final a = int.tryParse(away.trim());
+    if (h == null || a == null) return;
+    await _run(
+      () => _api.adminPatchMatch(match['id'] as String, {
+        'homeScore': h,
+        'awayScore': a,
+        'status': 'finished',
+      }),
+    );
+  }
+
   Future<void> _transfer() async {
     final query = await showDialog<String>(
       context: context,
@@ -235,6 +285,20 @@ class _AdminTournamentDetailState extends State<_AdminTournamentDetail> {
             child: const Text('Annuler le tournoi'),
           ),
           const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: () async {
+              final ok = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      EditTournamentScreen(tournament: widget.tournament),
+                ),
+              );
+              if (!mounted || ok != true) return;
+              Navigator.of(context).pop();
+            },
+            child: const Text('Modifier nom, lieu, date, statut…'),
+          ),
+          const SizedBox(height: 8),
           OutlinedButton(onPressed: _transfer, child: const Text('Transférer l’orga')),
           const SizedBox(height: 8),
           OutlinedButton(
@@ -250,14 +314,37 @@ class _AdminTournamentDetailState extends State<_AdminTournamentDetail> {
               contentPadding: EdgeInsets.zero,
               title: Text(team['name']?.toString() ?? ''),
               subtitle: Text(team['status']?.toString() ?? ''),
-              trailing: TextButton(
-                onPressed: () => _run(
-                  () => _api.adminForceTeamStatus(
-                    teamId: team['id'] as String,
-                    status: 'validated',
-                  ),
-                ),
-                child: const Text('Valider'),
+              trailing: PopupMenuButton<String>(
+                onSelected: (value) async {
+                  if (value == 'validate') {
+                    await _run(
+                      () => _api.adminForceTeamStatus(
+                        teamId: team['id'] as String,
+                        status: 'validated',
+                      ),
+                    );
+                  } else if (value == 'rename') {
+                    final name = await _prompt(
+                      title: 'Renommer l’équipe',
+                      initial: team['name']?.toString() ?? '',
+                    );
+                    if (name == null || name.trim().isEmpty) return;
+                    await _run(
+                      () => _api.adminPatchTeam(team['id'] as String, {
+                        'name': name.trim(),
+                      }),
+                    );
+                  } else if (value == 'delete') {
+                    await _run(
+                      () => _api.adminDeleteTeam(team['id'] as String),
+                    );
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'rename', child: Text('Renommer')),
+                  PopupMenuItem(value: 'validate', child: Text('Valider')),
+                  PopupMenuItem(value: 'delete', child: Text('Supprimer')),
+                ],
               ),
             ),
           ),
@@ -267,16 +354,30 @@ class _AdminTournamentDetailState extends State<_AdminTournamentDetail> {
           ..._matches.map(
             (match) => ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(match['status']?.toString() ?? ''),
+              title: Text(
+                '${match['homeScore'] ?? '-'} – ${match['awayScore'] ?? '-'} · ${match['status']}',
+              ),
               subtitle: Text(match['scheduledAt']?.toString() ?? ''),
-              trailing: match['status'] == 'cancelled'
-                  ? null
-                  : TextButton(
-                      onPressed: () => _run(
-                        () => _api.adminCancelMatch(match['id'] as String),
-                      ),
-                      child: const Text('Annuler'),
-                    ),
+              trailing: PopupMenuButton<String>(
+                onSelected: (value) async {
+                  if (value == 'score') {
+                    await _editMatchScore(match);
+                  } else if (value == 'cancel') {
+                    await _run(
+                      () => _api.adminCancelMatch(match['id'] as String),
+                    );
+                  } else if (value == 'delete') {
+                    await _run(
+                      () => _api.adminDeleteMatch(match['id'] as String),
+                    );
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'score', child: Text('Modifier le score')),
+                  PopupMenuItem(value: 'cancel', child: Text('Annuler')),
+                  PopupMenuItem(value: 'delete', child: Text('Supprimer')),
+                ],
+              ),
             ),
           ),
         ],

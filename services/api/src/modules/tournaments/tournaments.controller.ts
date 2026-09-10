@@ -20,6 +20,7 @@ import {
 import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { UpdateTournamentDto } from './dto/update-tournament.dto';
 import { JoinTournamentDto } from './dto/join-tournament.dto';
+import { AddTournamentMemberDto } from './dto/add-tournament-member.dto';
 
 @Controller('tournaments')
 export class TournamentsController {
@@ -88,6 +89,32 @@ export class TournamentsController {
     @Body() dto: JoinTournamentDto,
   ) {
     return this.tournamentsService.join(id, user.id, { code: dto.code });
+  }
+
+  @Post(':id/leave')
+  @UseGuards(JwtAuthGuard)
+  leave(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.tournamentsService.leave(id, user.id);
+  }
+
+  @Post(':id/members')
+  @UseGuards(JwtAuthGuard)
+  addMember(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: AddTournamentMemberDto,
+  ) {
+    return this.tournamentsService.addMember(id, user.id, dto.userId);
+  }
+
+  @Delete(':id/members/:userId')
+  @UseGuards(JwtAuthGuard)
+  kickMember(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.tournamentsService.kickMember(id, user.id, userId);
   }
 
   @Post(':id/join-code/regenerate')

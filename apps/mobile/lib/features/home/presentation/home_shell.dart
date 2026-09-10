@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../core/realtime/session_keep_alive.dart';
 import '../../../core/realtime/socket_service.dart';
 import '../../../design_system/components/fb_brand.dart';
 import '../../../design_system/tokens/colors.dart';
@@ -65,12 +66,14 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       SocketService.instance.setForeground(true);
+      SessionKeepAlive.instance.resume();
       _refreshUnread();
       return;
     }
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       SocketService.instance.setForeground(false);
+      SessionKeepAlive.instance.pause();
     }
   }
 
@@ -183,7 +186,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       NavigationDestination(
         icon: messagesIcon,
         selectedIcon: messagesIcon,
-        label: 'Messages',
+        label: 'Chat',
       ),
       const NavigationDestination(
         icon: Icon(Icons.person_outline),
@@ -236,8 +239,60 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 : null,
           ),
           const ChatOverlayLayer(),
+          const _ServerWakeBanner(),
         ],
       ),
+    );
+  }
+}
+
+class _ServerWakeBanner extends StatelessWidget {
+  const _ServerWakeBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: SessionKeepAlive.instance.waking,
+      builder: (context, waking, _) {
+        if (!waking) return const SizedBox.shrink();
+        return Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: Material(
+            color: FutBoliaColors.pitchDark,
+            elevation: 8,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: FutBoliaColors.lime,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Le serveur se réveille…',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

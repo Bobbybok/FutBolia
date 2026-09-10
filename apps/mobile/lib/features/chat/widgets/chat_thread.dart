@@ -109,13 +109,11 @@ class ChatThread extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: mine
                       ? FutBoliaColors.pitch
-                      : Theme.of(context).colorScheme.surfaceContainerHighest,
+                      : FutBoliaColors.cardDark,
                   borderRadius: BorderRadius.circular(14),
                   border: mine
                       ? null
-                      : Border.all(
-                          color: Theme.of(context).colorScheme.outlineVariant,
-                        ),
+                      : Border.all(color: FutBoliaColors.lineDark),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

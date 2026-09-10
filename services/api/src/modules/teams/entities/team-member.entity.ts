@@ -8,7 +8,7 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
-import { TeamMemberSlot } from '../../../common/enums';
+import { FifaPosition, TeamMemberSlot } from '../../../common/enums';
 import { User } from '../../users/entities/user.entity';
 import { Team } from './team.entity';
 
@@ -36,6 +36,9 @@ export class TeamMember {
 
   @Column({ type: 'varchar', default: TeamMemberSlot.STARTER })
   slot!: TeamMemberSlot;
+
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  position!: FifaPosition | null;
 
   @CreateDateColumn({ name: 'joined_at', type: 'timestamptz' })
   joinedAt!: Date;

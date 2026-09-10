@@ -157,10 +157,46 @@ export enum PlayerPosition {
   ANY = 'any',
 }
 
+/** Postes FIFA (indicatif, max 5 par joueur, ordre = préférence). */
+export enum FifaPosition {
+  GB = 'gb',
+  DG = 'dg',
+  DC = 'dc',
+  DD = 'dd',
+  MG = 'mg',
+  MC = 'mc',
+  MD = 'md',
+  MCD = 'mcd',
+  AG = 'ag',
+  BU = 'bu',
+  AD = 'ad',
+}
+
 export enum StrongFoot {
   LEFT = 'left',
   RIGHT = 'right',
   BOTH = 'both',
+}
+
+export enum ExperienceLevel {
+  LEISURE = 'leisure',
+  REGULAR = 'regular',
+  COMPETITION = 'competition',
+  SEMI_PRO = 'semi_pro',
+  PRO = 'pro',
+}
+
+export enum AvailabilitySlot {
+  SOIR = 'soir',
+  WEEKEND = 'weekend',
+  SEMAINE = 'semaine',
+  MIDI = 'midi',
+}
+
+export enum ProfileHiddenItemType {
+  TOURNAMENT = 'tournament',
+  MATCH = 'match',
+  PICKUP_MATCH = 'pickup_match',
 }
 
 export enum TournamentMode {

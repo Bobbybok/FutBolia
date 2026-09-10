@@ -10,6 +10,7 @@ import 'admin_security_screen.dart';
 import 'admin_stats_screen.dart';
 import 'admin_tournaments_screen.dart';
 import 'admin_users_screen.dart';
+import 'admin_pickups_screen.dart';
 import 'manage_admins/grant_admin_screen.dart';
 import 'manage_admins/grant_moderator_screen.dart';
 
@@ -88,7 +89,7 @@ class AdminHomeScreen extends StatelessWidget {
             if (user.hasPermission(AdminPermissions.manageUsers))
               _AdminCard(
                 title: 'Utilisateurs',
-                subtitle: 'Recherche, ban, e-mail, suppression',
+                subtitle: 'Recherche, ban, édition, suppression',
                 icon: Icons.people_outline,
                 onTap: () {
                   Navigator.of(context).push(
@@ -101,12 +102,25 @@ class AdminHomeScreen extends StatelessWidget {
             if (user.hasPermission(AdminPermissions.manageTournaments))
               _AdminCard(
                 title: 'Tournois',
-                subtitle: 'Tous les tournois, transfert, matchs, équipes',
+                subtitle: 'Modifier / supprimer tournois, matchs, équipes',
                 icon: Icons.emoji_events_outlined,
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => const AdminTournamentsScreen(),
+                    ),
+                  );
+                },
+              ),
+            if (user.hasPermission(AdminPermissions.manageTournaments))
+              _AdminCard(
+                title: 'Matchs libres',
+                subtitle: 'Annuler ou supprimer n’importe quel match',
+                icon: Icons.sports_soccer_outlined,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const AdminPickupsScreen(),
                     ),
                   );
                 },
@@ -175,7 +189,7 @@ class _AdminCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: Colors.white,
+        color: FutBoliaColors.cardDark,
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           onTap: onTap,
@@ -201,7 +215,7 @@ class _AdminCard extends StatelessWidget {
                       Text(
                         title,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: FutBoliaColors.ink,
+                              color: FutBoliaColors.inkDark,
                               fontWeight: FontWeight.w800,
                             ),
                       ),

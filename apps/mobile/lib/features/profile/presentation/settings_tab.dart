@@ -17,44 +17,21 @@ class SettingsTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
         _SettingsCard(
-          child: Column(
-            children: [
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text(
-                  'Thème sombre',
-                  style: TextStyle(
-                    color: FutBoliaColors.ink,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                subtitle: const Text(
-                  'Affichage clair ou sombre sur cet appareil',
-                  style: TextStyle(color: FutBoliaColors.inkMuted),
-                ),
-                activeThumbColor: FutBoliaColors.lime,
-                value: settings.darkMode,
-                onChanged: settings.setDarkMode,
+          child: SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'Notifications',
+              style: TextStyle(
+                color: FutBoliaColors.inkDark,
+                fontWeight: FontWeight.w700,
               ),
-              const Divider(height: 8),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text(
-                  'Notifications',
-                  style: TextStyle(
-                    color: FutBoliaColors.ink,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                subtitle: const Text(
-                  'Alertes push. Tes conversations et le badge Messages restent actifs.',
-                  style: TextStyle(color: FutBoliaColors.inkMuted),
-                ),
-                activeThumbColor: FutBoliaColors.lime,
-                value: settings.notificationsEnabled,
-                onChanged: (value) => _toggleNotifications(context, value),
-              ),
-            ],
+            ),
+            subtitle: const Text(
+              'Alertes push. Tes conversations et le badge Chat restent actifs.',
+              style: TextStyle(color: FutBoliaColors.inkMuted),
+            ),
+            value: settings.notificationsEnabled,
+            onChanged: (value) => _toggleNotifications(context, value),
           ),
         ),
         const SizedBox(height: 20),
@@ -97,10 +74,14 @@ class _SettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
-      elevation: 3,
-      shadowColor: Colors.black.withValues(alpha: 0.25),
-      borderRadius: BorderRadius.circular(18),
+      color: FutBoliaColors.cardDark,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: FutBoliaColors.lime.withValues(alpha: 0.22),
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: child,

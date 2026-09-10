@@ -36,8 +36,8 @@ export class PickupMatchMember {
   @JoinColumn({ name: 'user_id' })
   user!: User;
 
-  @Column({ type: 'varchar' })
-  side!: PickupMatchSide;
+  @Column({ type: 'varchar', nullable: true })
+  side!: PickupMatchSide | null;
 
   @CreateDateColumn({ name: 'joined_at', type: 'timestamptz' })
   joinedAt!: Date;

@@ -21,6 +21,9 @@ import { PickupMatch } from './entities/pickup-match.entity';
 import { PickupMatchMember } from './entities/pickup-match-member.entity';
 import { CreatePickupMatchDto } from './dto/create-pickup-match.dto';
 import { ScorePickupMatchDto } from './dto/score-pickup-match.dto';
+import { AddPickupMemberDto } from './dto/add-pickup-member.dto';
+import { UpdatePickupMemberDto } from './dto/update-pickup-member.dto';
+import { actorCanManageTournaments } from '../../common/staff-access';
 
 @Injectable()
 export class PickupMatchesService {
@@ -50,6 +53,7 @@ export class PickupMatchesService {
 
   async create(userId: string, dto: CreatePickupMatchDto) {
     await this.requireVerifiedEmail(userId);
+    await this.ensureSideNullable();
 
     const visibility = dto.visibility ?? TournamentVisibility.PUBLIC;
 
@@ -69,7 +73,7 @@ export class PickupMatchesService {
       this.members.create({
         matchId: match.id,
         userId,
-        side: PickupMatchSide.HOME,
+        side: null,
       }),
     );
 
@@ -118,6 +122,7 @@ export class PickupMatchesService {
     userId: string,
     options?: { code?: string; viaInvite?: boolean },
   ) {
+    await this.ensureSideNullable();
     await this.requireVerifiedEmail(userId);
 
     const match = await this.matches.findOne({ where: { id } });
@@ -159,19 +164,11 @@ export class PickupMatchesService {
       throw new BadRequestException('Ce match est complet');
     }
 
-    const homeCount = await this.members.count({
-      where: { matchId: id, side: PickupMatchSide.HOME },
-    });
-    const side =
-      homeCount < match.playersPerTeam
-        ? PickupMatchSide.HOME
-        : PickupMatchSide.AWAY;
-
     await this.members.save(
       this.members.create({
         matchId: id,
         userId,
-        side,
+        side: null,
       }),
     );
 
@@ -219,6 +216,141 @@ export class PickupMatchesService {
     return this.getById(id, userId);
   }
 
+  async addMember(id: string, actorId: string, dto: AddPickupMemberDto) {
+    await this.ensureSideNullable();
+    await this.requireHost(id, actorId);
+    const match = await this.matches.findOne({ where: { id } });
+    if (!match) {
+      throw new NotFoundException('Match introuvable');
+    }
+    if (
+      match.status !== PickupMatchStatus.OPEN &&
+      match.status !== PickupMatchStatus.FULL
+    ) {
+      throw new BadRequestException('Ce match n’accepte plus d’inscriptions');
+    }
+
+    const user = await this.users.findOne({ where: { id: dto.userId } });
+    if (!user || user.deletedAt) {
+      throw new NotFoundException('Utilisateur introuvable');
+    }
+
+    const existing = await this.members.findOne({
+      where: { matchId: id, userId: dto.userId },
+    });
+    if (existing) {
+      throw new ConflictException('Déjà inscrit à ce match');
+    }
+
+    const capacity = match.playersPerTeam * 2;
+    const membersCount = await this.members.count({ where: { matchId: id } });
+    if (membersCount >= capacity) {
+      throw new BadRequestException('Ce match est complet');
+    }
+
+    const side = dto.side ?? null;
+    if (side) {
+      await this.assertSideCapacity(id, match.playersPerTeam, side);
+    }
+    await this.members.save(
+      this.members.create({
+        matchId: id,
+        userId: dto.userId,
+        side,
+      }),
+    );
+    if (membersCount + 1 >= capacity) {
+      match.status = PickupMatchStatus.FULL;
+      await this.matches.save(match);
+    }
+    return this.getById(id, actorId);
+  }
+
+  async kickMember(id: string, actorId: string, userId: string) {
+    await this.requireHost(id, actorId);
+    const match = await this.matches.findOne({ where: { id } });
+    if (!match) {
+      throw new NotFoundException('Match introuvable');
+    }
+    if (match.createdById === userId) {
+      throw new BadRequestException('Impossible de retirer l’hôte');
+    }
+    const member = await this.members.findOne({
+      where: { matchId: id, userId },
+    });
+    if (!member) {
+      throw new NotFoundException('Ce joueur n’est pas inscrit');
+    }
+    await this.members.delete({ id: member.id });
+    if (match.status === PickupMatchStatus.FULL) {
+      match.status = PickupMatchStatus.OPEN;
+      await this.matches.save(match);
+    }
+    return this.getById(id, actorId);
+  }
+
+  async updateMemberSide(
+    id: string,
+    actorId: string,
+    userId: string,
+    dto: UpdatePickupMemberDto,
+  ) {
+    await this.ensureSideNullable();
+    await this.requireHost(id, actorId);
+    const match = await this.matches.findOne({ where: { id } });
+    if (!match) {
+      throw new NotFoundException('Match introuvable');
+    }
+    if (
+      match.status === PickupMatchStatus.FINISHED ||
+      match.status === PickupMatchStatus.CANCELLED
+    ) {
+      throw new BadRequestException('Impossible de déplacer un joueur');
+    }
+    const member = await this.members.findOne({
+      where: { matchId: id, userId },
+    });
+    if (!member) {
+      throw new NotFoundException('Ce joueur n’est pas inscrit');
+    }
+    if (member.side !== dto.side) {
+      if (dto.side) {
+        await this.assertSideCapacity(
+          id,
+          match.playersPerTeam,
+          dto.side,
+          userId,
+        );
+      }
+      member.side = dto.side ?? null;
+      await this.members.save(member);
+    }
+    return this.getById(id, actorId);
+  }
+
+  private async assertSideCapacity(
+    matchId: string,
+    playersPerTeam: number,
+    side: PickupMatchSide,
+    excludeUserId?: string,
+  ) {
+    const qb = this.members
+      .createQueryBuilder('m')
+      .where('m.match_id = :matchId', { matchId })
+      .andWhere('m.side = :side', { side });
+    if (excludeUserId) {
+      qb.andWhere('m.user_id != :excludeUserId', { excludeUserId });
+    }
+    const count = await qb.getCount();
+    if (count >= playersPerTeam) {
+      throw new BadRequestException(
+        side === PickupMatchSide.HOME
+          ? 'Équipe A complète'
+          : 'Équipe B complète',
+      );
+    }
+  }
+
   async score(id: string, userId: string, dto: ScorePickupMatchDto) {
     const match = await this.requireHost(id, userId);
 
@@ -226,7 +358,10 @@ export class PickupMatchesService {
       throw new BadRequestException('Ce match est annulé');
     }
     if (match.status === PickupMatchStatus.FINISHED) {
-      throw new BadRequestException('Le score est déjà saisi');
+      const staff = await actorCanManageTournaments(this.db, userId);
+      if (!staff) {
+        throw new BadRequestException('Le score est déjà saisi');
+      }
     }
 
     match.homeScore = dto.homeScore;
@@ -241,7 +376,10 @@ export class PickupMatchesService {
     const match = await this.requireHost(id, userId);
 
     if (match.status === PickupMatchStatus.FINISHED) {
-      throw new BadRequestException('Un match terminé ne peut pas être annulé');
+      const staff = await actorCanManageTournaments(this.db, userId);
+      if (!staff) {
+        throw new BadRequestException('Un match terminé ne peut pas être annulé');
+      }
     }
     if (match.status === PickupMatchStatus.CANCELLED) {
       throw new BadRequestException('Ce match est déjà annulé');
@@ -253,6 +391,23 @@ export class PickupMatchesService {
     await this.matches.save(match);
 
     return this.getById(id, userId);
+  }
+
+  async remove(id: string, userId: string) {
+    const match = await this.requireHost(id, userId);
+    await this.matches.remove(match);
+    return { success: true, message: 'Match supprimé', id };
+  }
+
+  private sideNullableReady = false;
+
+  private async ensureSideNullable() {
+    if (this.sideNullableReady) return;
+    await this.db.query(`
+      ALTER TABLE pickup_match_members
+        ALTER COLUMN side DROP NOT NULL
+    `);
+    this.sideNullableReady = true;
   }
 
   private async requireVerifiedEmail(userId: string) {
@@ -278,7 +433,10 @@ export class PickupMatchesService {
     if (!match) {
       throw new NotFoundException('Match introuvable');
     }
-    if (match.createdById !== userId) {
+    if (
+      match.createdById !== userId &&
+      !(await actorCanManageTournaments(this.db, userId))
+    ) {
       throw new ForbiddenException('Seul l’hôte peut effectuer cette action');
     }
     return match;
@@ -304,7 +462,7 @@ export class PickupMatchesService {
     let members:
       | Array<{
           id: string;
-          side: PickupMatchSide;
+          side: PickupMatchSide | null;
           joinedAt: Date;
           user: {
             id: string;

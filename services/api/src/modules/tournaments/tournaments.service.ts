@@ -22,12 +22,16 @@ import { Tournament } from './entities/tournament.entity';
 import { TournamentMember } from './entities/tournament-member.entity';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { UpdateTournamentDto } from './dto/update-tournament.dto';
+import { actorCanManageTournaments } from '../../common/staff-access';
+import { TeamsService } from '../teams/teams.service';
+import { TeamMember } from '../teams/entities/team-member.entity';
 
 @Injectable()
 export class TournamentsService {
   constructor(
     @Inject(TYPEORM_DATA_SOURCE) private readonly dataSource: DataSource | null,
     private readonly config: ConfigService,
+    private readonly teams: TeamsService,
   ) {}
 
   private get db(): DataSource {
@@ -55,7 +59,7 @@ export class TournamentsService {
     const visibility = dto.visibility ?? TournamentVisibility.PUBLIC;
 
     const startersCount = dto.startersCount ?? 5;
-    const substitutesCount = dto.substitutesCount ?? 2;
+    const substitutesCount = startersCount;
 
     const tournament = await this.tournaments.save(
       this.tournaments.create({
@@ -161,9 +165,7 @@ export class TournamentsService {
     if (dto.maxTeams !== undefined) tournament.maxTeams = dto.maxTeams;
     if (dto.startersCount !== undefined) {
       tournament.startersCount = dto.startersCount;
-    }
-    if (dto.substitutesCount !== undefined) {
-      tournament.substitutesCount = dto.substitutesCount;
+      tournament.substitutesCount = dto.startersCount;
     }
     if (dto.rulesText !== undefined) {
       tournament.rulesText = dto.rulesText?.trim() || null;
@@ -248,6 +250,97 @@ export class TournamentsService {
     return this.getById(id, userId);
   }
 
+  async leave(id: string, userId: string) {
+    const tournament = await this.tournaments.findOne({ where: { id } });
+    if (!tournament) {
+      throw new NotFoundException('Tournoi introuvable');
+    }
+    if (tournament.createdById === userId) {
+      throw new BadRequestException(
+        'L’organisateur ne peut pas quitter : supprime le tournoi à la place',
+      );
+    }
+    if (
+      tournament.status === TournamentStatus.FINISHED ||
+      tournament.status === TournamentStatus.CANCELLED
+    ) {
+      throw new BadRequestException('Impossible de quitter ce tournoi');
+    }
+
+    const membership = await this.members.findOne({
+      where: { tournamentId: id, userId },
+    });
+    if (!membership) {
+      throw new BadRequestException('Tu n’es pas inscrit à ce tournoi');
+    }
+
+    await this.teams.detachUserFromTournament(id, userId);
+    await this.members.delete({ id: membership.id });
+    return { success: true };
+  }
+
+  async addMember(id: string, actorId: string, userId: string) {
+    await this.requireOrganizer(id, actorId);
+    const tournament = await this.tournaments.findOne({ where: { id } });
+    if (!tournament) {
+      throw new NotFoundException('Tournoi introuvable');
+    }
+    if (
+      tournament.status === TournamentStatus.FINISHED ||
+      tournament.status === TournamentStatus.CANCELLED
+    ) {
+      throw new BadRequestException('Impossible d’ajouter un participant');
+    }
+
+    const user = await this.users.findOne({ where: { id: userId } });
+    if (!user || user.deletedAt) {
+      throw new NotFoundException('Utilisateur introuvable');
+    }
+
+    const existing = await this.members.findOne({
+      where: { tournamentId: id, userId },
+    });
+    if (existing) {
+      throw new ConflictException('Déjà membre de ce tournoi');
+    }
+
+    await this.members.save(
+      this.members.create({
+        tournamentId: id,
+        userId,
+        role: TournamentMemberRole.PLAYER,
+      }),
+    );
+    return this.listMembers(id, actorId);
+  }
+
+  async kickMember(id: string, actorId: string, userId: string) {
+    await this.requireOrganizer(id, actorId);
+    const tournament = await this.tournaments.findOne({ where: { id } });
+    if (!tournament) {
+      throw new NotFoundException('Tournoi introuvable');
+    }
+    if (tournament.createdById === userId) {
+      throw new BadRequestException(
+        'Impossible de retirer le créateur du tournoi',
+      );
+    }
+    if (userId === actorId && tournament.createdById === actorId) {
+      throw new BadRequestException('Tu ne peux pas te retirer');
+    }
+
+    const membership = await this.members.findOne({
+      where: { tournamentId: id, userId },
+    });
+    if (!membership) {
+      throw new NotFoundException('Ce joueur n’est pas inscrit');
+    }
+
+    await this.teams.detachUserFromTournament(id, userId);
+    await this.members.delete({ id: membership.id });
+    return this.listMembers(id, actorId);
+  }
+
   async listMembers(id: string, viewerId?: string) {
     const tournament = await this.tournaments.findOne({ where: { id } });
     if (!tournament) {
@@ -261,7 +354,8 @@ export class TournamentsService {
       const member = await this.members.findOne({
         where: { tournamentId: id, userId: viewerId },
       });
-      if (!member) {
+      const staff = await actorCanManageTournaments(this.db, viewerId);
+      if (!member && !staff) {
         throw new ForbiddenException("Vous n'êtes pas membre de ce tournoi privé");
       }
     }
@@ -272,17 +366,47 @@ export class TournamentsService {
       order: { joinedAt: 'ASC' },
     });
 
-    return rows.map((m) => ({
-      id: m.id,
-      role: m.role,
-      joinedAt: m.joinedAt,
-      user: {
-        id: m.user.id,
-        pseudo: m.user.profile?.pseudo ?? null,
-        avatarUrl: m.user.profile?.avatarUrl ?? null,
-        role: toPlatformRole(m.user.globalRole),
-      },
-    }));
+    const teamRows = await this.db
+      .getRepository(TeamMember)
+      .createQueryBuilder('tm')
+      .innerJoinAndSelect('tm.team', 'team')
+      .innerJoinAndSelect('tm.user', 'user')
+      .leftJoinAndSelect('user.profile', 'profile')
+      .where('team.tournament_id = :tournamentId', { tournamentId: id })
+      .getMany();
+
+    const teamByUser = new Map(
+      teamRows.map((row) => [
+        row.userId,
+        {
+          teamId: row.teamId,
+          teamName: row.team?.name ?? null,
+          slot: row.slot,
+          position: row.position,
+          isCaptain: row.team?.captainId === row.userId,
+        },
+      ]),
+    );
+
+    return rows.map((m) => {
+      const team = teamByUser.get(m.userId);
+      return {
+        id: m.id,
+        role: m.role,
+        joinedAt: m.joinedAt,
+        teamId: team?.teamId ?? null,
+        teamName: team?.teamName ?? null,
+        slot: team?.slot ?? null,
+        position: team?.position ?? null,
+        isCaptain: team?.isCaptain ?? false,
+        user: {
+          id: m.user.id,
+          pseudo: m.user.profile?.pseudo ?? null,
+          avatarUrl: m.user.profile?.avatarUrl ?? null,
+          role: toPlatformRole(m.user.globalRole),
+        },
+      };
+    });
   }
 
   private async requireVerifiedEmail(userId: string) {
@@ -317,7 +441,11 @@ export class TournamentsService {
       },
     });
 
-    if (!membership && tournament.createdById !== userId) {
+    if (
+      !membership &&
+      tournament.createdById !== userId &&
+      !(await actorCanManageTournaments(this.db, userId))
+    ) {
       throw new ForbiddenException("Seul l'organisateur peut modifier ce tournoi");
     }
 
@@ -339,6 +467,10 @@ export class TournamentsService {
       membership?.role === TournamentMemberRole.ORGANIZER ||
       tournament.createdById === viewerId;
 
+    const staff = viewerId
+      ? await actorCanManageTournaments(this.db, viewerId)
+      : false;
+
     let membersCount: number | undefined;
     if (includeMembersCount) {
       membersCount = await this.members.count({
@@ -355,7 +487,7 @@ export class TournamentsService {
       location: tournament.location,
       maxTeams: tournament.maxTeams,
       startersCount: tournament.startersCount,
-      substitutesCount: tournament.substitutesCount,
+      substitutesCount: tournament.startersCount,
       rulesText: tournament.rulesText,
       mode: tournament.mode,
       visibility: tournament.visibility,
@@ -363,6 +495,14 @@ export class TournamentsService {
       joinCodeEnabled: false,
       membersCount,
       myRole: membership?.role ?? null,
+      isOrganizer: Boolean(isOrganizer),
+      canManage: Boolean(isOrganizer || staff),
+      canCreateTeam: Boolean(
+        (isOrganizer || staff) ||
+          (membership != null &&
+            tournament.mode !== TournamentMode.SELECTION),
+      ),
+      canAccessInterTeamChat: false,
       createdById: tournament.createdById,
       createdAt: tournament.createdAt,
     };

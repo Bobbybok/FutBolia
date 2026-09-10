@@ -3,7 +3,7 @@
 ## Endpoints
 
 - `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/login` — e-mail **ou** pseudo + mot de passe
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
 - `POST /api/v1/auth/verify-email` — code à **6 chiffres**

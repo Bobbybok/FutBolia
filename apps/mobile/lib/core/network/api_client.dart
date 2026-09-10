@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../config/app_config.dart';
 import '../i18n/fr_labels.dart';
 
@@ -37,8 +38,35 @@ class ApiClient {
     onAccessTokenChanged?.call(token);
   }
 
-  Future<Map<String, dynamic>> getHealth() {
-    return _get('/health');
+  Future<Map<String, dynamic>> getHealth({
+    Duration timeout = const Duration(seconds: 20),
+  }) async {
+    try {
+      final response = await _client
+          .get(_uri('/health'), headers: _headers(auth: false))
+          .timeout(timeout);
+      final decoded = _decodeDynamic(response);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      throw ApiException('Réponse invalide');
+    } on ApiException {
+      rethrow;
+    } on TimeoutException {
+      throw ApiException(
+        'Délai dépassé. Vérifie que l’API tourne (${AppConfig.apiBaseUrl}).',
+        statusCode: 504,
+      );
+    } on SocketException {
+      throw ApiException(
+        'Impossible de joindre le serveur (${AppConfig.apiBaseUrl}).',
+        statusCode: 503,
+      );
+    } on http.ClientException catch (e) {
+      throw ApiException(
+        'Connexion impossible: ${e.message}. URL: ${AppConfig.apiBaseUrl}',
+        statusCode: 503,
+      );
+    }
   }
 
   Future<Map<String, dynamic>> register({
@@ -54,10 +82,15 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> login({
-    required String email,
+    String? email,
+    String? pseudo,
     required String password,
   }) {
-    return _post('/auth/login', {'email': email, 'password': password});
+    return _post('/auth/login', {
+      if (email != null && email.isNotEmpty) 'email': email,
+      if (pseudo != null && pseudo.isNotEmpty) 'pseudo': pseudo,
+      'password': password,
+    });
   }
 
   Future<Map<String, dynamic>> verifyEmail(String token) {
@@ -227,6 +260,43 @@ class ApiClient {
     return _post('/admin/teams/$teamId/status', {'status': status}, auth: true);
   }
 
+  Future<Map<String, dynamic>> adminPatchTeam(
+    String teamId,
+    Map<String, dynamic> body,
+  ) {
+    return _patch('/admin/teams/$teamId', body, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminDeleteTeam(String teamId) {
+    return _delete('/admin/teams/$teamId');
+  }
+
+  Future<Map<String, dynamic>> adminPatchMatch(
+    String matchId,
+    Map<String, dynamic> body,
+  ) {
+    return _patch('/admin/matches/$matchId', body, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminDeleteMatch(String matchId) {
+    return _delete('/admin/matches/$matchId');
+  }
+
+  Future<List<Map<String, dynamic>>> adminListPickupMatches() {
+    return _getList('/admin/pickup-matches');
+  }
+
+  Future<Map<String, dynamic>> adminPatchPickup(
+    String id,
+    Map<String, dynamic> body,
+  ) {
+    return _patch('/admin/pickup-matches/$id', body, auth: true);
+  }
+
+  Future<Map<String, dynamic>> adminDeletePickup(String id) {
+    return _delete('/admin/pickup-matches/$id');
+  }
+
   Future<Map<String, dynamic>> adminCancelMatch(String matchId) {
     return _post('/admin/matches/$matchId/cancel', {}, auth: true);
   }
@@ -279,6 +349,67 @@ class ApiClient {
 
   Future<Map<String, dynamic>> getPublicUser(String id) {
     return _get('/users/$id', auth: true);
+  }
+
+  Future<Map<String, dynamic>> hideCareerItem({
+    required String itemType,
+    required String itemId,
+    required bool hidden,
+  }) {
+    return _patch('/users/me/hidden', {
+      'itemType': itemType,
+      'itemId': itemId,
+      'hidden': hidden,
+    }, auth: true);
+  }
+
+  Future<Map<String, dynamic>> removeCareerItem({
+    required String userId,
+    required String itemType,
+    required String itemId,
+  }) {
+    return _delete('/users/$userId/career/$itemType/$itemId');
+  }
+
+  Future<Map<String, dynamic>> uploadMyAvatar({
+    required List<int> bytes,
+    required String filename,
+    String contentType = 'image/jpeg',
+  }) {
+    return _withAuthRetry(true, () async {
+      try {
+        final request = http.MultipartRequest('POST', _uri('/users/me/avatar'));
+        final headers = _headers(auth: true);
+        headers.remove('Content-Type');
+        request.headers.addAll(headers);
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'file',
+            bytes,
+            filename: filename,
+            contentType: MediaType.parse(contentType),
+          ),
+        );
+        final streamed = await request.send().timeout(
+          const Duration(seconds: 45),
+        );
+        final response = await http.Response.fromStream(streamed);
+        final decoded = _decodeDynamic(response);
+        if (decoded is Map<String, dynamic>) return decoded;
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+        return <String, dynamic>{};
+      } on ApiException {
+        rethrow;
+      } on TimeoutException {
+        throw ApiException('Délai dépassé. Réessaie.');
+      } on SocketException {
+        throw ApiException(
+          'Impossible de joindre le serveur (${AppConfig.apiBaseUrl}).',
+        );
+      } on http.ClientException catch (e) {
+        throw ApiException('Connexion impossible: ${e.message}');
+      }
+    });
   }
 
   Future<Map<String, dynamic>> adminDeleteMessage(String id) {
@@ -374,6 +505,13 @@ class ApiClient {
     return _post('/tournaments', body, auth: true);
   }
 
+  Future<Map<String, dynamic>> updateTournament(
+    String id,
+    Map<String, dynamic> body,
+  ) {
+    return _patch('/tournaments/$id', body, auth: true);
+  }
+
   Future<Map<String, dynamic>> deleteTournament(String id) async {
     final response = await _client
         .delete(
@@ -430,6 +568,27 @@ class ApiClient {
     return _post('/pickup-matches/$id/leave', {}, auth: true);
   }
 
+  Future<Map<String, dynamic>> addPickupMember(
+    String matchId,
+    Map<String, dynamic> body,
+  ) {
+    return _post('/pickup-matches/$matchId/members', body, auth: true);
+  }
+
+  Future<Map<String, dynamic>> updatePickupMemberSide(
+    String matchId,
+    String userId,
+    String? side,
+  ) {
+    return _patch('/pickup-matches/$matchId/members/$userId', {
+      'side': side,
+    }, auth: true);
+  }
+
+  Future<void> kickPickupMember(String matchId, String userId) async {
+    await _delete('/pickup-matches/$matchId/members/$userId');
+  }
+
   Future<Map<String, dynamic>> scorePickupMatch(
     String id,
     Map<String, dynamic> body,
@@ -439,6 +598,10 @@ class ApiClient {
 
   Future<Map<String, dynamic>> cancelPickupMatch(String id) {
     return _post('/pickup-matches/$id/cancel', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> deletePickupMatch(String id) {
+    return _delete('/pickup-matches/$id');
   }
 
   Future<List<Map<String, dynamic>>> listTeams(String tournamentId) async {
@@ -460,6 +623,41 @@ class ApiClient {
     Map<String, dynamic> body,
   ) {
     return _post('/tournaments/$tournamentId/teams', body, auth: true);
+  }
+
+  Future<Map<String, dynamic>> updateTeam(
+    String teamId,
+    Map<String, dynamic> body,
+  ) {
+    return _patch('/teams/$teamId', body, auth: true);
+  }
+
+  Future<Map<String, dynamic>> deleteTeam(String teamId) {
+    return _delete('/teams/$teamId');
+  }
+
+  Future<Map<String, dynamic>> assignTournamentTeam(
+    String tournamentId,
+    Map<String, dynamic> body,
+  ) {
+    return _post('/tournaments/$tournamentId/assign-team', body, auth: true);
+  }
+
+  Future<void> addTournamentMember(String tournamentId, String userId) async {
+    await _post('/tournaments/$tournamentId/members', {
+      'userId': userId,
+    }, auth: true);
+  }
+
+  Future<void> kickTournamentMember(
+    String tournamentId,
+    String userId,
+  ) async {
+    await _delete('/tournaments/$tournamentId/members/$userId');
+  }
+
+  Future<Map<String, dynamic>> leaveTournament(String tournamentId) {
+    return _post('/tournaments/$tournamentId/leave', {}, auth: true);
   }
 
   Future<Map<String, dynamic>> getTeam(String teamId) {
@@ -703,12 +901,16 @@ class ApiClient {
   Future<Map<String, dynamic>> createEventInvites({
     required String targetType,
     required String targetId,
-    required List<String> friendIds,
+    List<String> friendIds = const [],
+    List<String> userIds = const [],
+    List<String> pseudos = const [],
   }) {
     return _post('/invites', {
       'targetType': targetType,
       'targetId': targetId,
-      'friendIds': friendIds,
+      if (friendIds.isNotEmpty) 'friendIds': friendIds,
+      if (userIds.isNotEmpty) 'userIds': userIds,
+      if (pseudos.isNotEmpty) 'pseudos': pseudos,
     }, auth: true);
   }
 
@@ -818,6 +1020,132 @@ class ApiClient {
 
   Future<Map<String, dynamic>> hideTournamentChat(String tournamentId) {
     return _post('/tournaments/$tournamentId/chat/hide', {}, auth: true);
+  }
+
+  Future<List<Map<String, dynamic>>> listTeamChatMessages(
+    String teamId, {
+    String? before,
+    int limit = 50,
+    bool restoreInbox = false,
+  }) async {
+    final params = <String, String>{'limit': '$limit'};
+    if (before != null) params['before'] = before;
+    if (restoreInbox) params['restoreInbox'] = '1';
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/teams/$teamId/chat')
+        .replace(queryParameters: params);
+    final response = await _client
+        .get(uri, headers: _headers(auth: true))
+        .timeout(const Duration(seconds: 10));
+    final decoded = _decodeDynamic(response);
+    final list = decoded is Map ? decoded['messages'] : decoded;
+    if (list is! List) {
+      throw ApiException('Réponse chat équipe invalide');
+    }
+    return list
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> postTeamChatMessage(
+    String teamId,
+    String body,
+  ) {
+    return _post('/teams/$teamId/chat', {'body': body}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> deleteTeamChatMessage(String messageId) async {
+    return _delete('/chat/team-messages/$messageId');
+  }
+
+  Future<Map<String, dynamic>> clearTeamChat(String teamId) {
+    return _post('/teams/$teamId/chat/clear', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> clearTeamChatForEveryone(String teamId) {
+    return _post('/teams/$teamId/chat/clear-all', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> hideTeamChat(String teamId) {
+    return _post('/teams/$teamId/chat/hide', {}, auth: true);
+  }
+
+  Future<Map<String, dynamic>> toggleTeamMemberSlot(
+    String teamId,
+    String userId,
+  ) {
+    return _post(
+      '/teams/$teamId/members/$userId/toggle-slot',
+      {},
+      auth: true,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> listInterTeamChatMessages(
+    String tournamentId, {
+    String? before,
+    int limit = 50,
+    bool restoreInbox = false,
+  }) async {
+    final params = <String, String>{'limit': '$limit'};
+    if (before != null) params['before'] = before;
+    if (restoreInbox) params['restoreInbox'] = '1';
+    final uri = Uri.parse(
+      '${AppConfig.apiBaseUrl}/tournaments/$tournamentId/inter-team-chat',
+    ).replace(queryParameters: params);
+    final response = await _client
+        .get(uri, headers: _headers(auth: true))
+        .timeout(const Duration(seconds: 10));
+    final decoded = _decodeDynamic(response);
+    final list = decoded is Map ? decoded['messages'] : decoded;
+    if (list is! List) {
+      throw ApiException('Réponse chat inter-équipes invalide');
+    }
+    return list
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> postInterTeamChatMessage(
+    String tournamentId,
+    String body,
+  ) {
+    return _post(
+      '/tournaments/$tournamentId/inter-team-chat',
+      {'body': body},
+      auth: true,
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteInterTeamChatMessage(String messageId) {
+    return _delete('/chat/inter-team-messages/$messageId');
+  }
+
+  Future<Map<String, dynamic>> clearInterTeamChat(String tournamentId) {
+    return _post(
+      '/tournaments/$tournamentId/inter-team-chat/clear',
+      {},
+      auth: true,
+    );
+  }
+
+  Future<Map<String, dynamic>> clearInterTeamChatForEveryone(
+    String tournamentId,
+  ) {
+    return _post(
+      '/tournaments/$tournamentId/inter-team-chat/clear-all',
+      {},
+      auth: true,
+    );
+  }
+
+  Future<Map<String, dynamic>> hideInterTeamChat(String tournamentId) {
+    return _post(
+      '/tournaments/$tournamentId/inter-team-chat/hide',
+      {},
+      auth: true,
+    );
   }
 
   Future<Map<String, dynamic>> upsertDeviceToken({

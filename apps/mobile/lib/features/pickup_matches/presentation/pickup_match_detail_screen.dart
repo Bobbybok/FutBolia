@@ -8,6 +8,10 @@ import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
 import '../../auth/domain/staff_label.dart';
 import '../../invites/invite_friends_sheet.dart';
+import '../../admin/admin_permissions.dart';
+import '../../profile/presentation/public_profile_screen.dart';
+import '../../private_chat/conversation_screen.dart';
+import '../../profile/widgets/player_avatar.dart';
 
 class PickupMatchDetailScreen extends StatefulWidget {
   const PickupMatchDetailScreen({super.key, required this.matchId});
@@ -160,6 +164,37 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
     }
   }
 
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer ce match ?'),
+        content: const Text('Action définitive.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Retour'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: FutBoliaColors.danger),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await context.read<AuthSession>().api.deletePickupMatch(widget.matchId);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -175,6 +210,11 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
     final m = _match!;
     final isMember = m['isMember'] == true;
     final isHost = m['isHost'] == true;
+    final staffManage = context.watch<AuthSession>().user?.hasPermission(
+          AdminPermissions.manageTournaments,
+        ) ??
+        false;
+    final canHost = isHost || staffManage;
     final isPrivate = m['visibility'] == 'private';
     final status = m['status']?.toString();
     final members = (m['members'] as List?)
@@ -184,6 +224,9 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
         [];
     final home = members.where((e) => e['side'] == 'home').toList();
     final away = members.where((e) => e['side'] == 'away').toList();
+    final unassigned = members
+        .where((e) => e['side'] != 'home' && e['side'] != 'away')
+        .toList();
     final canJoin = !isMember &&
         !isPrivate &&
         status == 'open';
@@ -191,11 +234,9 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
         !isHost &&
         status != 'finished' &&
         status != 'cancelled';
-    final canScore = isHost &&
-        status != 'finished' &&
+    final canScore = canHost &&
         status != 'cancelled';
-    final canCancel = isHost &&
-        status != 'finished' &&
+    final canCancel = canHost &&
         status != 'cancelled';
 
     return Scaffold(
@@ -210,11 +251,13 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
               FbBadge(label: FrLabels.matchStatus(status)),
               FbBadge(
                 label: FrLabels.visibility(m['visibility']?.toString()),
-                background: const Color(0xFFE3F2FD),
+                background: FutBoliaColors.badgeInfo,
+                foreground: FutBoliaColors.inkDark,
               ),
               FbBadge(
                 label: '${m['membersCount'] ?? 0} / ${m['capacity'] ?? '?'}',
-                background: const Color(0xFFE8F5E9),
+                background: FutBoliaColors.badgeSoft,
+                foreground: FutBoliaColors.inkDark,
               ),
             ],
           ),
@@ -222,7 +265,7 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
           Text('Lieu : ${m['location']}'),
           Text('Date : ${_formatDate(m['scheduledAt'])}'),
           Text('Format : ${m['playersPerTeam']} vs ${m['playersPerTeam']}'),
-          if (m['mySide'] != null)
+          if (isMember)
             Text('Ton équipe : ${FrLabels.pickupSide(m['mySide']?.toString())}'),
           if (status == 'finished') ...[
             const SizedBox(height: 12),
@@ -234,7 +277,7 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
           const SizedBox(height: 24),
           if (!isMember && isPrivate && status == 'open')
             Text(
-              'Match privé : tu dois recevoir une invitation de l’hôte (onglet Amis).',
+              'Match privé : tu dois recevoir une invitation de l’hôte.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: FutBoliaColors.inkMuted,
                   ),
@@ -247,9 +290,9 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
             ),
             const SizedBox(height: 12),
           ],
-          if (isHost && isPrivate && status == 'open') ...[
+          if (canHost && status == 'open') ...[
             FbButton(
-              label: 'Inviter des amis',
+              label: 'Inviter un joueur',
               variant: FbButtonVariant.secondary,
               onPressed: () => showInviteFriendsSheet(
                 context,
@@ -273,7 +316,7 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
           if (canScore) ...[
             const SizedBox(height: 8),
             Text(
-              'Saisie du score (hôte)',
+              'Saisie du score',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
@@ -311,39 +354,339 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
               onPressed: _cancel,
             ),
           ],
+          if (staffManage) ...[
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _delete,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: FutBoliaColors.danger,
+              ),
+              child: const Text('Supprimer le match'),
+            ),
+          ],
           const SizedBox(height: 28),
+          Text(
+            'Participants',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Les joueurs invités arrivent sans équipe. Glisse-les vers A ou B.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: FutBoliaColors.inkMuted,
+                ),
+          ),
+          if (canHost)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _addParticipant,
+                icon: const Icon(Icons.person_add_alt_1),
+                label: const Text('Ajouter un joueur'),
+              ),
+            ),
+          Text('Sans équipe', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          _sideDrop(null, unassigned, canHost),
+          const SizedBox(height: 20),
           Text('Équipe A', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          ..._memberTiles(home),
-          if (home.isEmpty)
-            Text(
-              'Aucun joueur pour l’instant',
-              style: TextStyle(color: FutBoliaColors.inkMuted),
-            ),
+          _sideDrop('home', home, canHost),
           const SizedBox(height: 20),
           Text('Équipe B', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          ..._memberTiles(away),
-          if (away.isEmpty)
-            Text(
-              'Aucun joueur pour l’instant',
-              style: TextStyle(color: FutBoliaColors.inkMuted),
-            ),
+          _sideDrop('away', away, canHost),
         ],
       ),
     );
   }
 
-  List<Widget> _memberTiles(List<Map<String, dynamic>> members) {
-    return members.map((m) {
-      final user = m['user'] as Map<String, dynamic>? ?? {};
-      final pseudo = staffPseudoOf(user);
-      return ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-        title: Text(pseudo),
-      );
-    }).toList();
+  Widget _sideDrop(
+    String? side,
+    List<Map<String, dynamic>> members,
+    bool canHost,
+  ) {
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (_) => canHost,
+      onAcceptWithDetails: (details) async {
+        try {
+          await context.read<AuthSession>().api.updatePickupMemberSide(
+                widget.matchId,
+                details.data,
+                side,
+              );
+          await _load();
+        } on ApiException catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(e.message)));
+        }
+      },
+      builder: (context, pending, rejected) {
+        return Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 72),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: pending.isNotEmpty
+                ? FutBoliaColors.lime.withValues(alpha: 0.35)
+                : FutBoliaColors.surfaceRaised,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: FutBoliaColors.line),
+          ),
+          child: members.isEmpty
+              ? Text(
+                  side == null
+                      ? 'Les joueurs sans équipe apparaissent ici'
+                      : 'Dépose un joueur ici',
+                  style: TextStyle(color: FutBoliaColors.inkMuted),
+                )
+              : Column(children: members.map(_memberTile).toList()),
+        );
+      },
+    );
+  }
+
+  Widget _memberTile(Map<String, dynamic> m) {
+    final user = m['user'] as Map<String, dynamic>? ?? {};
+    final uid = user['id']?.toString();
+    final pseudo = staffPseudoOf(user);
+    final canHost = (_match?['isHost'] == true) ||
+        (context.read<AuthSession>().user?.hasPermission(
+              AdminPermissions.manageTournaments,
+            ) ??
+            false);
+    final tile = ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: PlayerAvatar(
+        userId: uid,
+        avatarUrl: user['avatarUrl']?.toString(),
+        radius: 18,
+      ),
+      title: Text(pseudo),
+      onTap: () => _onMemberTap(
+        uid,
+        pseudo,
+        canHost,
+        m['side']?.toString(),
+      ),
+    );
+    if (uid == null || !canHost) return tile;
+    return LongPressDraggable<String>(
+      data: uid,
+      feedback: Material(
+        elevation: 6,
+        child: SizedBox(width: 240, child: tile),
+      ),
+      childWhenDragging: Opacity(opacity: 0.3, child: tile),
+      child: tile,
+    );
+  }
+
+  Future<void> _onMemberTap(
+    String? uid,
+    String pseudo,
+    bool canHost,
+    String? side,
+  ) async {
+    if (uid == null) return;
+    final me = context.read<AuthSession>().user?.id;
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text('Voir le profil'),
+              onTap: () {
+                Navigator.pop(ctx);
+                openPublicProfile(context, uid);
+              },
+            ),
+            if (uid != me)
+              ListTile(
+                leading: const Icon(Icons.chat_bubble_outline),
+                title: const Text('Message privé'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    final conv = await context
+                        .read<AuthSession>()
+                        .api
+                        .openConversation(uid);
+                    if (!mounted) return;
+                    openDirectChat(
+                      context,
+                      conversationId: conv['id'] as String,
+                      friendName: pseudo,
+                      friendId: uid,
+                      canSend: conv['canSend'] != false,
+                    );
+                  } on ApiException catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text(e.message)));
+                  }
+                },
+              ),
+            if (canHost) ...[
+              if (side != 'home')
+                ListTile(
+                  leading: const Icon(Icons.arrow_forward),
+                  title: const Text('Mettre en équipe A'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _moveSide(uid, 'home');
+                  },
+                ),
+              if (side != 'away')
+                ListTile(
+                  leading: const Icon(Icons.arrow_forward),
+                  title: const Text('Mettre en équipe B'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _moveSide(uid, 'away');
+                  },
+                ),
+              if (side == 'home' || side == 'away')
+                ListTile(
+                  leading: const Icon(Icons.person_outline),
+                  title: const Text('Remettre sans équipe'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _moveSide(uid, null);
+                  },
+                ),
+            ],
+            if (canHost && uid != _match?['createdById']?.toString())
+              ListTile(
+                leading: const Icon(Icons.logout, color: FutBoliaColors.danger),
+                title: const Text('Retirer du match'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    await context
+                        .read<AuthSession>()
+                        .api
+                        .kickPickupMember(widget.matchId, uid);
+                    await _load();
+                  } on ApiException catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text(e.message)));
+                  }
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _moveSide(String userId, String? side) async {
+    try {
+      await context.read<AuthSession>().api.updatePickupMemberSide(
+            widget.matchId,
+            userId,
+            side,
+          );
+      await _load();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _addParticipant() async {
+    final q = TextEditingController();
+    List<Map<String, dynamic>> results = [];
+    var loading = false;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModal) {
+            Future<void> search() async {
+              if (q.text.trim().length < 2) return;
+              setModal(() => loading = true);
+              try {
+                final rows = await context
+                    .read<AuthSession>()
+                    .api
+                    .searchPlayers(q.text.trim());
+                setModal(() {
+                  results = rows;
+                  loading = false;
+                });
+              } catch (_) {
+                setModal(() => loading = false);
+              }
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              child: SafeArea(
+                child: SizedBox(
+                  height: 420,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: TextField(
+                          controller: q,
+                          decoration: const InputDecoration(
+                            labelText: 'Pseudo',
+                          ),
+                          onSubmitted: (_) => search(),
+                        ),
+                      ),
+                      if (loading) const LinearProgressIndicator(),
+                      Expanded(
+                        child: ListView(
+                          children: results.map((u) {
+                            final id = u['id']?.toString();
+                            return ListTile(
+                              title: Text(staffPseudoOf(u)),
+                              onTap: id == null
+                                  ? null
+                                  : () async {
+                                      Navigator.pop(ctx);
+                                      try {
+                                        await context
+                                            .read<AuthSession>()
+                                            .api
+                                            .addPickupMember(widget.matchId, {
+                                          'userId': id,
+                                        });
+                                        await _load();
+                                      } on ApiException catch (e) {
+                                        if (!mounted) return;
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(content: Text(e.message)),
+                                        );
+                                      }
+                                    },
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    q.dispose();
   }
 
   String _formatDate(dynamic value) {

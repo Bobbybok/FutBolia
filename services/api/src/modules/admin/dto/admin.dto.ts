@@ -1,8 +1,10 @@
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   ArrayUnique,
   IsArray,
   IsBoolean,
+  IsDateString,
   IsEmail,
   IsEnum,
   IsIn,
@@ -19,11 +21,19 @@ import {
 import { Type } from 'class-transformer';
 import {
   AdminPermissionType,
+  AvailabilitySlot,
+  ExperienceLevel,
+  FifaPosition,
+  MatchStatus,
+  PickupMatchStatus,
   ReportReasonCode,
   ReportStatus,
   ReportType,
+  StrongFoot,
   TeamStatus,
+  TournamentMode,
   TournamentStatus,
+  TournamentVisibility,
 } from '../../../common/enums';
 
 export class GrantAdminDto {
@@ -89,6 +99,56 @@ export class PatchAdminUserDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
+  bio?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @IsEnum(FifaPosition, { each: true })
+  positions?: FifaPosition[];
+
+  @IsOptional()
+  @IsEnum(StrongFoot)
+  strongFoot?: StrongFoot | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(120)
+  @Max(230)
+  heightCm?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(40)
+  @Max(160)
+  weightKg?: number | null;
+
+  @IsOptional()
+  @IsEnum(ExperienceLevel)
+  experienceLevel?: ExperienceLevel | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1970)
+  @Max(2035)
+  playingSinceYear?: number | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(4)
+  @IsEnum(AvailabilitySlot, { each: true })
+  availability?: AvailabilitySlot[];
+
+  @IsOptional()
+  @IsBoolean()
+  clearAvatar?: boolean;
+
+  @IsOptional()
+  @IsString()
   @MinLength(8)
   @MaxLength(72)
   password?: string;
@@ -98,11 +158,130 @@ export class PatchTournamentDto {
   @IsOptional()
   @IsString()
   @MinLength(2)
+  @MaxLength(120)
   name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  description?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  startsAt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(160)
+  location?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2)
+  @Max(64)
+  maxTeams?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(11)
+  startersCount?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(11)
+  substitutesCount?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  rulesText?: string | null;
+
+  @IsOptional()
+  @IsEnum(TournamentMode)
+  mode?: TournamentMode;
+
+  @IsOptional()
+  @IsEnum(TournamentVisibility)
+  visibility?: TournamentVisibility;
 
   @IsOptional()
   @IsEnum(TournamentStatus)
   status?: TournamentStatus;
+}
+
+export class PatchAdminMatchDto {
+  @IsOptional()
+  @IsDateString()
+  scheduledAt?: string | null;
+
+  @IsOptional()
+  @IsEnum(MatchStatus)
+  status?: MatchStatus;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  homeScore?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  awayScore?: number | null;
+}
+
+export class PatchAdminTeamDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  name?: string;
+
+  @IsOptional()
+  @IsEnum(TeamStatus)
+  status?: TeamStatus;
+}
+
+export class PatchAdminPickupDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(160)
+  location?: string;
+
+  @IsOptional()
+  @IsDateString()
+  scheduledAt?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(11)
+  playersPerTeam?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  homeScore?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  awayScore?: number | null;
+
+  @IsOptional()
+  @IsEnum(PickupMatchStatus)
+  status?: PickupMatchStatus;
 }
 
 export class TransferOwnerDto {

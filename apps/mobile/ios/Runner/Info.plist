@@ -53,6 +53,10 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MatchArena utilise tes photos pour la photo de profil.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>MatchArena utilise tes photos pour la photo de profil.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

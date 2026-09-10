@@ -18,7 +18,6 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
   final _description = TextEditingController();
   final _maxTeams = TextEditingController(text: '8');
   final _starters = TextEditingController(text: '5');
-  final _substitutes = TextEditingController(text: '2');
   DateTime _startsAt = DateTime.now().add(const Duration(days: 7));
   String _mode = 'classic';
   String _visibility = 'public';
@@ -31,7 +30,6 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
     _description.dispose();
     _maxTeams.dispose();
     _starters.dispose();
-    _substitutes.dispose();
     super.dispose();
   }
 
@@ -76,7 +74,6 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
         'startsAt': _startsAt.toUtc().toIso8601String(),
         'maxTeams': int.tryParse(_maxTeams.text.trim()) ?? 8,
         'startersCount': int.tryParse(_starters.text.trim()) ?? 5,
-        'substitutesCount': int.tryParse(_substitutes.text.trim()) ?? 2,
         'mode': _mode,
         'visibility': _visibility,
       });
@@ -126,14 +123,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
               labelText: 'Titulaires par équipe',
-            ),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _substitutes,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Remplaçants par équipe',
+              helperText: 'Même nombre de remplaçants que de titulaires',
             ),
           ),
           const SizedBox(height: 14),

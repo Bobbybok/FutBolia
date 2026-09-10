@@ -25,6 +25,7 @@ import { Team } from '../teams/entities/team.entity';
 import { TeamMember } from '../teams/entities/team-member.entity';
 import { RecruitmentOffer } from './entities/recruitment-offer.entity';
 import { CreateOfferDto } from './dto/create-offer.dto';
+import { actorCanManageTournaments } from '../../common/staff-access';
 
 @Injectable()
 export class MercatoService {
@@ -281,7 +282,7 @@ export class MercatoService {
         const subs = await teamMemberRepo.count({
           where: { teamId: team.id, slot: TeamMemberSlot.SUBSTITUTE },
         });
-        if (subs >= tournament.substitutesCount) {
+        if (subs >= tournament.startersCount) {
           throw new BadRequestException('Effectif de l’équipe complet');
         }
         slot = TeamMemberSlot.SUBSTITUTE;
@@ -307,7 +308,7 @@ export class MercatoService {
       });
       team.status =
         newStarters >= tournament.startersCount &&
-        newSubs >= tournament.substitutesCount
+        newSubs >= tournament.startersCount
           ? TeamStatus.COMPLETE
           : TeamStatus.FORMING;
       await teamRepo.save(team);
@@ -433,7 +434,11 @@ export class MercatoService {
         role: TournamentMemberRole.ORGANIZER,
       },
     });
-    if (!membership && tournament.createdById !== userId) {
+    if (
+      !membership &&
+      tournament.createdById !== userId &&
+      !(await actorCanManageTournaments(this.db, userId))
+    ) {
       throw new ForbiddenException(
         "Seul l'organisateur peut effectuer cette action",
       );
@@ -471,7 +476,7 @@ export class MercatoService {
     const max =
       slot === TeamMemberSlot.STARTER
         ? tournament.startersCount
-        : tournament.substitutesCount;
+        : tournament.startersCount;
     if (count >= max) {
       throw new BadRequestException(
         slot === TeamMemberSlot.STARTER

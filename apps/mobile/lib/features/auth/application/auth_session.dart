@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/notifications/push_notification_service.dart';
+import '../../../core/realtime/session_keep_alive.dart';
 import '../../../core/realtime/socket_service.dart';
 import '../domain/futbolia_user.dart';
 
@@ -170,14 +171,16 @@ class AuthSession extends ChangeNotifier {
   }
 
   Future<void> login({
-    required String email,
+    String? email,
+    String? pseudo,
     required String password,
   }) async {
     errorMessage = null;
     notifyListeners();
     try {
       final data = await _api.login(
-        email: email.trim(),
+        email: email?.trim(),
+        pseudo: pseudo?.trim(),
         password: password,
       );
       await _persistSession(data);
@@ -243,6 +246,29 @@ class AuthSession extends ChangeNotifier {
     }
   }
 
+  Future<void> uploadAvatar({
+    required List<int> bytes,
+    required String filename,
+    String contentType = 'image/jpeg',
+  }) async {
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final me = await _api.uploadMyAvatar(
+        bytes: bytes,
+        filename: filename,
+        contentType: contentType,
+      );
+      user = FutBoliaUser.fromJson(me);
+      await _storage.write(key: _kUser, value: jsonEncode(me));
+    } on ApiException catch (e) {
+      errorMessage = e.message;
+      rethrow;
+    } finally {
+      notifyListeners();
+    }
+  }
+
   Future<void> logout() async {
     final refresh = await _storage.read(key: _kRefresh);
     try {
@@ -253,6 +279,7 @@ class AuthSession extends ChangeNotifier {
       // Local logout still proceeds.
     }
     await PushNotificationService.instance.stop(_api);
+    SessionKeepAlive.instance.stop();
     SocketService.instance.disconnect();
     await _clearTokens();
     user = null;
@@ -281,6 +308,11 @@ class AuthSession extends ChangeNotifier {
 
   Future<void> _startRealtime() async {
     SocketService.instance.connect(_api.accessToken);
+    SessionKeepAlive.instance.attach(
+      api: _api,
+      refreshJwt: _silentRefresh,
+      token: () => _api.accessToken,
+    );
     if (_notificationsEnabled()) {
       await PushNotificationService.instance.start(_api);
     }

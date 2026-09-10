@@ -15,6 +15,8 @@ class ConversationTile extends StatelessWidget {
   final VoidCallback? onLongPress;
 
   bool get _isTournament => conversation['kind'] == 'tournament';
+  bool get _isTeam => conversation['kind'] == 'team';
+  bool get _isInterTeam => conversation['kind'] == 'inter_team';
 
   @override
   Widget build(BuildContext context) {
@@ -24,21 +26,33 @@ class ConversationTile extends StatelessWidget {
         ? (last['body']?.toString() ?? '')
         : _isTournament
             ? 'Chat privé des participants'
-            : 'Aucun message';
+            : _isTeam
+                ? 'Chat de l’équipe'
+                : _isInterTeam
+                    ? 'Chat des capitaines'
+                    : 'Aucun message';
     final title = _isTournament
         ? (conversation['name']?.toString() ?? 'Tournoi')
-        : staffPseudoOf(conversation['friend']);
+        : _isTeam
+            ? (conversation['name']?.toString() ?? 'Équipe')
+            : _isInterTeam
+                ? (conversation['name']?.toString() ?? 'Chat inter-équipes')
+                : staffPseudoOf(conversation['friend']);
     final visibility = conversation['visibility']?.toString();
     final subtitle = _isTournament && last is! Map
         ? preview
         : _isTournament && visibility != null
             ? '${visibility == 'private' ? 'Tournoi privé' : 'Tournoi public'} · $preview'
-            : preview;
+            : _isTeam && conversation['tournamentName'] != null
+                ? '${conversation['tournamentName']} · $preview'
+                : _isInterTeam && conversation['tournamentName'] != null
+                    ? '${conversation['tournamentName']} · $preview'
+                    : preview;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
       child: Material(
-        color: Colors.white,
+        color: FutBoliaColors.cardDark,
         borderRadius: BorderRadius.circular(18),
         elevation: 0,
         shadowColor: Colors.black.withValues(alpha: 0.25),
@@ -50,15 +64,25 @@ class ConversationTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
-                CircleAvatar(
+                  CircleAvatar(
                   backgroundColor: _isTournament
-                      ? FutBoliaColors.lime
-                      : const Color(0xFFE8F5E9),
+                      ? FutBoliaColors.lime.withValues(alpha: 0.22)
+                      : _isTeam
+                          ? FutBoliaColors.badgeInfo
+                          : _isInterTeam
+                              ? const Color(0xFF3D2A12)
+                              : FutBoliaColors.badgeSoft,
                   child: Icon(
                     _isTournament
                         ? Icons.emoji_events_outlined
-                        : Icons.person_outline,
-                    color: FutBoliaColors.ink,
+                        : _isTeam
+                            ? Icons.groups_outlined
+                            : _isInterTeam
+                                ? Icons.hub_outlined
+                                : Icons.person_outline,
+                    color: _isTournament
+                        ? FutBoliaColors.lime
+                        : FutBoliaColors.inkDark,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -69,7 +93,7 @@ class ConversationTile extends StatelessWidget {
                       Text(
                         title,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: FutBoliaColors.ink,
+                              color: FutBoliaColors.inkDark,
                               fontWeight: FontWeight.w800,
                             ),
                       ),
@@ -94,7 +118,7 @@ class ConversationTile extends StatelessWidget {
                       _isTournament
                           ? Icons.forum_outlined
                           : Icons.chat_bubble_outline,
-                      color: FutBoliaColors.pitchDark,
+                      color: FutBoliaColors.lime,
                     ),
                   )
                 else

@@ -210,8 +210,9 @@ class _PickupMatchList extends StatelessWidget {
               child: Ink(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: FutBoliaColors.cardDark,
                   borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: FutBoliaColors.lineDark),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.25),
@@ -232,7 +233,7 @@ class _PickupMatchList extends StatelessWidget {
                                 .textTheme
                                 .titleLarge
                                 ?.copyWith(
-                                  color: FutBoliaColors.ink,
+                                  color: FutBoliaColors.inkDark,
                                   fontWeight: FontWeight.w800,
                                 ),
                           ),
@@ -260,8 +261,8 @@ class _PickupMatchList extends StatelessWidget {
                         FbBadge(
                           label:
                               FrLabels.visibility(m['visibility']?.toString()),
-                          background: const Color(0xFFF3F7F4),
-                          foreground: FutBoliaColors.pitchDark,
+                          background: FutBoliaColors.badgeSoft,
+                          foreground: FutBoliaColors.inkDark,
                         ),
                         FbBadge(
                           label: '$membersCount / $capacity',

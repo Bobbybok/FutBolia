@@ -16,6 +16,8 @@ class SocketService {
   String? _token;
   bool _refreshing = false;
   final _joinedTournaments = <String>{};
+  final _joinedTeams = <String>{};
+  final _joinedInterTeams = <String>{};
   final _state = ValueNotifier<SocketConnectionState>(
     SocketConnectionState.disconnected,
   );
@@ -25,6 +27,14 @@ class SocketService {
   final _tournamentMessageDeleted =
       StreamController<Map<String, dynamic>>.broadcast();
   final _tournamentChatCleared =
+      StreamController<Map<String, dynamic>>.broadcast();
+  final _teamMessage = StreamController<Map<String, dynamic>>.broadcast();
+  final _teamMessageDeleted = StreamController<Map<String, dynamic>>.broadcast();
+  final _teamChatCleared = StreamController<Map<String, dynamic>>.broadcast();
+  final _interTeamMessage = StreamController<Map<String, dynamic>>.broadcast();
+  final _interTeamMessageDeleted =
+      StreamController<Map<String, dynamic>>.broadcast();
+  final _interTeamChatCleared =
       StreamController<Map<String, dynamic>>.broadcast();
   final _privateMessage = StreamController<Map<String, dynamic>>.broadcast();
   final _privateMessageDeleted =
@@ -49,6 +59,17 @@ class SocketService {
       _tournamentMessageDeleted.stream;
   Stream<Map<String, dynamic>> get onTournamentChatCleared =>
       _tournamentChatCleared.stream;
+  Stream<Map<String, dynamic>> get onTeamMessage => _teamMessage.stream;
+  Stream<Map<String, dynamic>> get onTeamMessageDeleted =>
+      _teamMessageDeleted.stream;
+  Stream<Map<String, dynamic>> get onTeamChatCleared =>
+      _teamChatCleared.stream;
+  Stream<Map<String, dynamic>> get onInterTeamMessage =>
+      _interTeamMessage.stream;
+  Stream<Map<String, dynamic>> get onInterTeamMessageDeleted =>
+      _interTeamMessageDeleted.stream;
+  Stream<Map<String, dynamic>> get onInterTeamChatCleared =>
+      _interTeamChatCleared.stream;
   Stream<Map<String, dynamic>> get onPrivateMessage => _privateMessage.stream;
   Stream<Map<String, dynamic>> get onPrivateMessageDeleted =>
       _privateMessageDeleted.stream;
@@ -81,8 +102,8 @@ class SocketService {
           .setTransports(['websocket', 'polling'])
           .disableAutoConnect()
           .enableReconnection()
-          .setReconnectionDelay(800)
-          .setReconnectionDelayMax(12000)
+          .setReconnectionDelay(1000)
+          .setReconnectionDelayMax(30000)
           .setAuth({'token': token})
           .setQuery({'token': token})
           .enableForceNew()
@@ -91,12 +112,16 @@ class SocketService {
     _socket = socket;
 
     socket.onConnect((_) {
+      if (!identical(_socket, socket)) return;
       debugPrint('Socket.io connecté');
       _state.value = SocketConnectionState.connected;
       socket.emit('app:foreground');
       _rejoinTournaments();
+      _rejoinTeams();
+      _rejoinInterTeams();
     });
     socket.onDisconnect((_) {
+      if (!identical(_socket, socket)) return;
       debugPrint('Socket.io déconnecté');
       if (_token != null) {
         _state.value = SocketConnectionState.connecting;
@@ -105,17 +130,22 @@ class SocketService {
       }
     });
     socket.onConnectError((err) {
+      if (!identical(_socket, socket)) return;
       debugPrint('Socket.io connect_error: $err');
       _state.value = SocketConnectionState.connecting;
       unawaited(_recoverAuth());
     });
     socket.onError((err) {
+      if (!identical(_socket, socket)) return;
       debugPrint('Socket.io error: $err');
     });
     socket.onReconnect((_) {
+      if (!identical(_socket, socket)) return;
       _state.value = SocketConnectionState.connected;
       socket.emit('app:foreground');
       _rejoinTournaments();
+      _rejoinTeams();
+      _rejoinInterTeams();
     });
 
     socket.on('tournament:message', (data) {
@@ -132,6 +162,36 @@ class SocketService {
     socket.on('tournament:chatCleared', (data) {
       final map = _asMap(data);
       if (map != null) _tournamentChatCleared.add(map);
+    });
+    socket.on('team:message', (data) {
+      final map = _asMap(data);
+      if (map != null) {
+        _teamMessage.add(map);
+        _inboxPing.add(null);
+      }
+    });
+    socket.on('team:messageDeleted', (data) {
+      final map = _asMap(data);
+      if (map != null) _teamMessageDeleted.add(map);
+    });
+    socket.on('team:chatCleared', (data) {
+      final map = _asMap(data);
+      if (map != null) _teamChatCleared.add(map);
+    });
+    socket.on('interTeam:message', (data) {
+      final map = _asMap(data);
+      if (map != null) {
+        _interTeamMessage.add(map);
+        _inboxPing.add(null);
+      }
+    });
+    socket.on('interTeam:messageDeleted', (data) {
+      final map = _asMap(data);
+      if (map != null) _interTeamMessageDeleted.add(map);
+    });
+    socket.on('interTeam:chatCleared', (data) {
+      final map = _asMap(data);
+      if (map != null) _interTeamChatCleared.add(map);
     });
     socket.on('private:message', (data) {
       final map = _asMap(data);
@@ -176,6 +236,36 @@ class SocketService {
     socket.connect();
   }
 
+  /// Reconnect if we have a token but no live socket.
+  void ensureConnected() {
+    final token = tokenProvider?.call() ?? _token;
+    if (token == null || token.isEmpty) return;
+    final socket = _socket;
+    if (socket == null) {
+      connect(token);
+      return;
+    }
+    _applyAuth(socket, token);
+    if (!socket.connected) {
+      _state.value = SocketConnectionState.connecting;
+      socket.connect();
+    }
+  }
+
+  /// Drop a stale engine and open a new one. Rooms are kept and re-joined.
+  void recycle() {
+    final token = tokenProvider?.call() ?? _token;
+    final socket = _socket;
+    _socket = null;
+    try {
+      socket?.disconnect();
+      socket?.dispose();
+    } catch (_) {}
+    if (token != null && token.isNotEmpty) {
+      connect(token);
+    }
+  }
+
   void updateToken(String? token) {
     _token = token;
     final socket = _socket;
@@ -210,6 +300,26 @@ class SocketService {
     _socket?.emit('leaveTournament', {'tournamentId': tournamentId});
   }
 
+  void joinTeam(String teamId) {
+    _joinedTeams.add(teamId);
+    _socket?.emit('joinTeam', {'teamId': teamId});
+  }
+
+  void leaveTeam(String teamId) {
+    _joinedTeams.remove(teamId);
+    _socket?.emit('leaveTeam', {'teamId': teamId});
+  }
+
+  void joinInterTeam(String tournamentId) {
+    _joinedInterTeams.add(tournamentId);
+    _socket?.emit('joinInterTeam', {'tournamentId': tournamentId});
+  }
+
+  void leaveInterTeam(String tournamentId) {
+    _joinedInterTeams.remove(tournamentId);
+    _socket?.emit('leaveInterTeam', {'tournamentId': tournamentId});
+  }
+
   void _rejoinTournaments() {
     final socket = _socket;
     if (socket == null || !socket.connected) return;
@@ -218,9 +328,27 @@ class SocketService {
     }
   }
 
+  void _rejoinTeams() {
+    final socket = _socket;
+    if (socket == null || !socket.connected) return;
+    for (final id in _joinedTeams) {
+      socket.emit('joinTeam', {'teamId': id});
+    }
+  }
+
+  void _rejoinInterTeams() {
+    final socket = _socket;
+    if (socket == null || !socket.connected) return;
+    for (final id in _joinedInterTeams) {
+      socket.emit('joinInterTeam', {'tournamentId': id});
+    }
+  }
+
   void disconnect() {
     _token = null;
     _joinedTournaments.clear();
+    _joinedTeams.clear();
+    _joinedInterTeams.clear();
     final socket = _socket;
     _socket = null;
     _state.value = SocketConnectionState.disconnected;

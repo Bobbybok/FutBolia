@@ -11,7 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes, randomInt } from 'crypto';
-import { DataSource, IsNull, MoreThan, Repository } from 'typeorm';
+import { DataSource, ILike, IsNull, MoreThan, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
 import { AuthTokenType, PlatformRole, toPlatformRole, UserStatus } from '../../common/enums';
 import { AdminPermission } from '../admin/entities/admin-permission.entity';
@@ -22,6 +22,7 @@ import { AuthToken } from './entities/auth-token.entity';
 import { MailService } from '../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { serializeSportProfile } from '../users/profile-view';
 
 export type PublicUser = {
   id: string;
@@ -37,7 +38,13 @@ export type PublicUser = {
     firstName: string | null;
     city: string | null;
     position: string | null;
+    positions: string[];
     strongFoot: string | null;
+    heightCm: number | null;
+    weightKg: number | null;
+    experienceLevel: string | null;
+    playingSinceYear: number | null;
+    availability: string[];
     level: number | null;
     bio: string | null;
     avatarUrl: string | null;
@@ -139,8 +146,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const email = dto.email.trim().toLowerCase();
-    const user = await this.users.findOne({ where: { email } });
+    const user = await this.findUserForLogin(dto);
     if (!user || user.status === UserStatus.DELETED) {
       throw new UnauthorizedException('Identifiants invalides');
     }
@@ -172,6 +178,23 @@ export class AuthService {
       user: await this.toPublicUser(user.id),
       ...tokens,
     };
+  }
+
+  private async findUserForLogin(dto: LoginDto): Promise<User | null> {
+    const email = dto.email?.trim().toLowerCase();
+    if (email) {
+      const byEmail = await this.users.findOne({ where: { email } });
+      if (byEmail) return byEmail;
+    }
+
+    const pseudo = dto.pseudo?.trim();
+    if (!pseudo) return null;
+
+    const profile = await this.profiles.findOne({
+      where: { pseudo: ILike(pseudo) },
+    });
+    if (!profile) return null;
+    return this.users.findOne({ where: { id: profile.userId } });
   }
 
   async refresh(refreshToken: string) {
@@ -418,16 +441,7 @@ export class AuthService {
       globalRole: user.globalRole,
       role,
       permissions,
-      profile: {
-        pseudo: user.profile.pseudo,
-        firstName: user.profile.firstName,
-        city: user.profile.city,
-        position: user.profile.position,
-        strongFoot: user.profile.strongFoot,
-        level: user.profile.level,
-        bio: user.profile.bio,
-        avatarUrl: user.profile.avatarUrl,
-      },
+      profile: serializeSportProfile(user.profile),
     };
   }
 

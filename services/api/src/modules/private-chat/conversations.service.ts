@@ -10,6 +10,8 @@ import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
 import { isStaff, toPlatformRole } from '../../common/enums';
 import { FriendsService } from '../friends/friends.service';
 import { User } from '../users/entities/user.entity';
+import { TournamentMember } from '../tournaments/entities/tournament-member.entity';
+import { PickupMatchMember } from '../pickup-matches/entities/pickup-match-member.entity';
 import { Conversation } from './entities/conversation.entity';
 import { DirectMessage } from './entities/direct-message.entity';
 import { SendDirectMessageDto } from './dto/send-message.dto';
@@ -51,7 +53,35 @@ export class ConversationsService {
   private async canMessage(userId: string, otherId: string) {
     if (await this.actorIsStaff(userId)) return true;
     if (await this.actorIsStaff(otherId)) return true;
-    return this.friends.areFriends(userId, otherId);
+    if (await this.friends.areFriends(userId, otherId)) return true;
+    return this.shareEvent(userId, otherId);
+  }
+
+  private async shareEvent(userA: string, userB: string) {
+    const sameTournament = await this.db
+      .getRepository(TournamentMember)
+      .createQueryBuilder('m1')
+      .innerJoin(
+        TournamentMember,
+        'm2',
+        'm2.tournament_id = m1.tournament_id AND m2.user_id = :userB',
+        { userB },
+      )
+      .where('m1.user_id = :userA', { userA })
+      .getCount();
+    if (sameTournament > 0) return true;
+    const samePickup = await this.db
+      .getRepository(PickupMatchMember)
+      .createQueryBuilder('m1')
+      .innerJoin(
+        PickupMatchMember,
+        'm2',
+        'm2.match_id = m1.match_id AND m2.user_id = :userB',
+        { userB },
+      )
+      .where('m1.user_id = :userA', { userA })
+      .getCount();
+    return samePickup > 0;
   }
 
   async list(userId: string) {
@@ -149,10 +179,10 @@ export class ConversationsService {
     if (userId === friendId) {
       throw new ForbiddenException('Conversation impossible avec soi-même');
     }
-    const staff = await this.actorIsStaff(userId);
-    const otherIsStaff = await this.actorIsStaff(friendId);
-    if (!staff && !otherIsStaff) {
-      await this.friends.assertFriends(userId, friendId);
+    if (!(await this.canMessage(userId, friendId))) {
+      throw new ForbiddenException(
+        'Tu peux écrire à un ami, un co-participant ou un staff',
+      );
     }
     const [user1Id, user2Id] = this.orderedPair(userId, friendId);
     let conversation = await this.conversations.findOne({
@@ -230,7 +260,9 @@ export class ConversationsService {
     const conversation = await this.requireMember(conversationId, userId);
     const otherId = this.otherUserId(conversation, userId);
     if (!(await this.canMessage(userId, otherId))) {
-      await this.friends.assertFriends(userId, otherId);
+      throw new ForbiddenException(
+        'Tu peux écrire à un ami, un co-participant ou un staff',
+      );
     }
     const saved = await this.messages.save(
       this.messages.create({

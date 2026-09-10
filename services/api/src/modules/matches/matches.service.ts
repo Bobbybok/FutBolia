@@ -19,6 +19,7 @@ import { Team } from '../teams/entities/team.entity';
 import { Match } from './entities/match.entity';
 import { CreateMatchDto } from './dto/create-match.dto';
 import { UpdateMatchDto } from './dto/update-match.dto';
+import { actorCanManageTournaments } from '../../common/staff-access';
 
 @Injectable()
 export class MatchesService {
@@ -235,9 +236,12 @@ export class MatchesService {
     await this.requireOrganizer(tournament, actorId);
 
     if (match.status === MatchStatus.FINISHED) {
-      throw new BadRequestException(
-        'Impossible de supprimer un match terminé. Annulez-le à la place.',
-      );
+      const staff = await actorCanManageTournaments(this.db, actorId);
+      if (!staff) {
+        throw new BadRequestException(
+          'Impossible de supprimer un match terminé. Annulez-le à la place.',
+        );
+      }
     }
 
     await this.matches.remove(match);
@@ -367,7 +371,7 @@ export class MatchesService {
     const membership = await this.tournamentMembers.findOne({
       where: { tournamentId, userId },
     });
-    if (!membership) {
+    if (!membership && !(await actorCanManageTournaments(this.db, userId))) {
       throw new ForbiddenException('Vous devez participer au tournoi');
     }
     return membership;
@@ -381,7 +385,11 @@ export class MatchesService {
         role: TournamentMemberRole.ORGANIZER,
       },
     });
-    if (!membership && tournament.createdById !== userId) {
+    if (
+      !membership &&
+      tournament.createdById !== userId &&
+      !(await actorCanManageTournaments(this.db, userId))
+    ) {
       throw new ForbiddenException(
         "Seul l'organisateur peut gérer les matchs",
       );

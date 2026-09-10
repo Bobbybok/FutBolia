@@ -7,9 +7,16 @@ class FutBoliaUser {
     this.firstName,
     this.city,
     this.position,
+    this.positions = const [],
     this.strongFoot,
+    this.heightCm,
+    this.weightKg,
+    this.experienceLevel,
+    this.playingSinceYear,
+    this.availability = const [],
     this.level,
     this.bio,
+    this.avatarUrl,
     this.role = 'user',
     this.permissions = const [],
   });
@@ -21,9 +28,16 @@ class FutBoliaUser {
   final String? firstName;
   final String? city;
   final String? position;
+  final List<String> positions;
   final String? strongFoot;
+  final int? heightCm;
+  final int? weightKg;
+  final String? experienceLevel;
+  final int? playingSinceYear;
+  final List<String> availability;
   final int? level;
   final String? bio;
+  final String? avatarUrl;
   final String role;
   final List<String> permissions;
 
@@ -63,9 +77,19 @@ class FutBoliaUser {
       firstName: profile['firstName'] as String?,
       city: profile['city'] as String?,
       position: profile['position'] as String?,
+      positions: _normalizePositions(
+        profile['positions'],
+        profile['position'] as String?,
+      ),
       strongFoot: profile['strongFoot'] as String?,
-      level: profile['level'] as int?,
+      heightCm: _asInt(profile['heightCm']),
+      weightKg: _asInt(profile['weightKg']),
+      experienceLevel: profile['experienceLevel'] as String?,
+      playingSinceYear: _asInt(profile['playingSinceYear']),
+      availability: _asStringList(profile['availability']),
+      level: _asInt(profile['level']),
       bio: profile['bio'] as String?,
+      avatarUrl: profile['avatarUrl'] as String?,
       role: (json['role'] as String?) ??
           (json['globalRole'] as String?) ??
           'user',
@@ -74,4 +98,40 @@ class FutBoliaUser {
           : const [],
     );
   }
+}
+
+List<String> _normalizePositions(dynamic positions, String? legacy) {
+  if (positions is List && positions.isNotEmpty) {
+    return positions
+        .map((e) => e.toString())
+        .where((e) => e.isNotEmpty)
+        .take(5)
+        .toList();
+  }
+  const map = {
+    'gk': 'gb',
+    'def': 'dc',
+    'mid': 'mc',
+    'fwd': 'bu',
+  };
+  final mapped = map[legacy];
+  if (mapped != null) return [mapped];
+  if (legacy != null &&
+      legacy.isNotEmpty &&
+      legacy != 'any' &&
+      !map.containsKey(legacy)) {
+    return [legacy];
+  }
+  return [];
+}
+
+int? _asInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '');
+}
+
+List<String> _asStringList(dynamic value) {
+  if (value is! List) return const [];
+  return value.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
 }

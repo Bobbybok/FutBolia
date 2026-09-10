@@ -10,9 +10,7 @@ Future<void> main() async {
   final settings = AppSettings();
   await settings.load();
   SystemChrome.setSystemUIOverlayStyle(
-    settings.darkMode
-        ? SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent)
-        : SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent),
+    SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent),
   );
   runApp(FutBoliaApp(settings: settings));
 }

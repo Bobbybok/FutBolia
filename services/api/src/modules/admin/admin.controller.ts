@@ -25,6 +25,9 @@ import {
   ForceTeamStatusDto,
   GrantAdminDto,
   GrantModeratorDto,
+  PatchAdminMatchDto,
+  PatchAdminPickupDto,
+  PatchAdminTeamDto,
   PatchAdminUserDto,
   PatchTournamentDto,
   ResolveReportDto,
@@ -275,6 +278,44 @@ export class AdminController {
     return this.admin.forceTeamStatus(actor, id, dto);
   }
 
+  @Patch('teams/:id')
+  @RequirePermission(AdminPermissionType.MANAGE_TOURNAMENTS)
+  patchTeam(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PatchAdminTeamDto,
+  ) {
+    return this.admin.patchTeam(actor, id, dto);
+  }
+
+  @Delete('teams/:id')
+  @RequirePermission(AdminPermissionType.MANAGE_TOURNAMENTS)
+  deleteTeam(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.admin.deleteTeam(actor, id);
+  }
+
+  @Patch('matches/:id')
+  @RequirePermission(AdminPermissionType.MANAGE_TOURNAMENTS)
+  patchMatch(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PatchAdminMatchDto,
+  ) {
+    return this.admin.patchMatch(actor, id, dto);
+  }
+
+  @Delete('matches/:id')
+  @RequirePermission(AdminPermissionType.MANAGE_TOURNAMENTS)
+  deleteMatch(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.admin.deleteMatch(actor, id);
+  }
+
   @Post('matches/:id/cancel')
   @RequirePermission(AdminPermissionType.MANAGE_TOURNAMENTS)
   cancelMatch(
@@ -282,6 +323,31 @@ export class AdminController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.admin.cancelMatch(actor, id);
+  }
+
+  @Get('pickup-matches')
+  @RequirePermission(AdminPermissionType.MANAGE_TOURNAMENTS)
+  listPickups() {
+    return this.admin.listPickupMatches();
+  }
+
+  @Patch('pickup-matches/:id')
+  @RequirePermission(AdminPermissionType.MANAGE_TOURNAMENTS)
+  patchPickup(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PatchAdminPickupDto,
+  ) {
+    return this.admin.patchPickup(actor, id, dto);
+  }
+
+  @Delete('pickup-matches/:id')
+  @RequirePermission(AdminPermissionType.MANAGE_TOURNAMENTS)
+  deletePickup(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.admin.deletePickup(actor, id);
   }
 
   @Get('reports')

@@ -204,19 +204,13 @@ flutter build apk --release
 
 ## Roadmap (résumé)
 
-1. **Phase 1** — Foundation ✅
-2. **Phase 2** — Authentification & profil ✅
-3. **Phase 3** — Tournois ✅
-4. **Phase 4** — Équipes ✅
-5. **Phase 5** — Mode Classique ✅
-6. **Phase 6** — Sélection / Mercato ✅
-7. **Phase 7** — Matchs, scores, classements ✅
-8. **Phase 8** — Stats / trophées _(reportée)_
-9. **Phase 9** — Chat par tournoi ✅
-10. **Phases 10–11** — Forum UI, modération, notifications
-11. **Phases 12–13** — Tests & APK production
+Phases 1–7 et 9 (fondation → tournois, équipes, mercato, matchs, chat) **livrées**.  
+Amis, chat privé, pickup, admin/modo, signalements, Socket.io : **livrés**.  
+Push FCM / vérif e-mail / forum UI : **codés en partie, pas activés**.  
+Stats/trophées reportées. APK prod : plus tard.
 
-Décisions détaillées : voir `docs/architecture.md`.
+Suivi à jour (fait / pas activé / à faire) : [`docs/v1-suivi.md`](docs/v1-suivi.md).  
+Specs par module : `docs/auth.md`, `docs/tournaments.md`, `docs/chat.md`, etc.
 
 ---
 

@@ -27,8 +27,11 @@ class FriendTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: FutBoliaColors.cardDark,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: FutBoliaColors.lineDark),
+        ),
         child: InkWell(
           onTap: onTap,
           onLongPress: onLongPress,
@@ -52,7 +55,7 @@ class FriendTile extends StatelessWidget {
               title: Text(
                 staffPseudoOf(user),
                 style: const TextStyle(
-                  color: FutBoliaColors.ink,
+                  color: FutBoliaColors.inkDark,
                   fontWeight: FontWeight.w700,
                 ),
               ),

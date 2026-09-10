@@ -43,7 +43,7 @@ export class Tournament {
   @Column({ name: 'starters_count', type: 'int', default: 5 })
   startersCount!: number;
 
-  @Column({ name: 'substitutes_count', type: 'int', default: 2 })
+  @Column({ name: 'substitutes_count', type: 'int', default: 5 })
   substitutesCount!: number;
 
   @Column({ name: 'rules_text', type: 'text', nullable: true })

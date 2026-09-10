@@ -7,7 +7,11 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { PlayerPosition, StrongFoot } from '../../../common/enums';
+import {
+  ExperienceLevel,
+  PlayerPosition,
+  StrongFoot,
+} from '../../../common/enums';
 import { User } from './user.entity';
 
 @Entity('profiles')
@@ -34,8 +38,26 @@ export class Profile {
   @Column({ type: 'varchar', length: 16, nullable: true })
   position!: PlayerPosition | null;
 
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  positions!: string[];
+
   @Column({ name: 'strong_foot', type: 'varchar', length: 16, nullable: true })
   strongFoot!: StrongFoot | null;
+
+  @Column({ name: 'height_cm', type: 'smallint', nullable: true })
+  heightCm!: number | null;
+
+  @Column({ name: 'weight_kg', type: 'smallint', nullable: true })
+  weightKg!: number | null;
+
+  @Column({ name: 'experience_level', type: 'varchar', length: 24, nullable: true })
+  experienceLevel!: ExperienceLevel | null;
+
+  @Column({ name: 'playing_since_year', type: 'smallint', nullable: true })
+  playingSinceYear!: number | null;
+
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  availability!: string[];
 
   @Column({ type: 'smallint', nullable: true })
   level!: number | null;

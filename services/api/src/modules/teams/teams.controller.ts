@@ -20,6 +20,7 @@ import { UpdateTeamDto } from './dto/update-team.dto';
 import { AddTeamMemberDto } from './dto/add-team-member.dto';
 import { UpdateTeamMemberDto } from './dto/update-team-member.dto';
 import { SetCaptainDto } from './dto/set-captain.dto';
+import { AssignTeamDto } from './dto/assign-team.dto';
 
 @Controller()
 export class TeamsController {
@@ -104,10 +105,36 @@ export class TeamsController {
     return this.teamsService.setCaptain(id, user.id, dto.userId);
   }
 
+  @Post('teams/:id/members/:userId/toggle-slot')
+  @UseGuards(JwtAuthGuard)
+  toggleSlot(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.teamsService.toggleSlot(id, userId, user.id);
+  }
+
   @Post('teams/:id/leave')
   @UseGuards(JwtAuthGuard)
   leave(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.teamsService.leave(id, user.id);
+  }
+
+  @Delete('teams/:id')
+  @UseGuards(JwtAuthGuard)
+  removeTeam(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.teamsService.removeTeam(id, user.id);
+  }
+
+  @Post('tournaments/:tournamentId/assign-team')
+  @UseGuards(JwtAuthGuard)
+  assignTeam(
+    @Param('tournamentId') tournamentId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: AssignTeamDto,
+  ) {
+    return this.teamsService.assignPlayer(user.id, dto, tournamentId);
   }
 
   @Post('teams/:id/validate')
