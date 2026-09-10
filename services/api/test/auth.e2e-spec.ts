@@ -83,4 +83,31 @@ describe('Auth (e2e)', () => {
     expect(res.body.accessToken).toBeDefined();
     expect(res.body.user.profile.pseudo).toBe(pseudo);
   });
+
+  it('rotates tokens on refresh and returns the user', async () => {
+    const login = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email, password })
+      .expect(200);
+
+    const refresh = await request(app.getHttpServer())
+      .post('/api/v1/auth/refresh')
+      .send({ refreshToken: login.body.refreshToken })
+      .expect(200);
+
+    expect(refresh.body.accessToken).toBeDefined();
+    expect(refresh.body.refreshToken).toBeDefined();
+    expect(refresh.body.refreshToken).not.toBe(login.body.refreshToken);
+    expect(refresh.body.user.email).toBe(email);
+
+    await request(app.getHttpServer())
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${refresh.body.accessToken}`)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/refresh')
+      .send({ refreshToken: login.body.refreshToken })
+      .expect(401);
+  });
 });

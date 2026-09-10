@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../auth/jwt_expiry.dart';
 import '../network/api_client.dart';
 import 'socket_service.dart';
 
@@ -12,7 +13,6 @@ class SessionKeepAlive {
   static final SessionKeepAlive instance = SessionKeepAlive._();
 
   static const _healthEvery = Duration(minutes: 10);
-  static const _jwtEvery = Duration(minutes: 12);
   static const _connectingBannerAfter = Duration(seconds: 8);
 
   final waking = ValueNotifier<bool>(false);
@@ -73,6 +73,12 @@ class SessionKeepAlive {
     unawaited(_resumeFlow());
   }
 
+  /// Called after a successful token persist so the next refresh matches `exp`.
+  void noteTokenRefresh() {
+    if (!_running || _paused) return;
+    _scheduleJwtRefresh();
+  }
+
   Future<void> ping() async {
     if (!_running || _paused) return;
     final api = _api;
@@ -117,9 +123,15 @@ class SessionKeepAlive {
 
   void _schedule() {
     _healthTimer?.cancel();
-    _jwtTimer?.cancel();
     _healthTimer = Timer.periodic(_healthEvery, (_) => unawaited(ping()));
-    _jwtTimer = Timer.periodic(_jwtEvery, (_) => unawaited(_refreshAccess()));
+    _scheduleJwtRefresh();
+  }
+
+  void _scheduleJwtRefresh() {
+    _jwtTimer?.cancel();
+    if (!_running || _paused) return;
+    final delay = delayUntilJwtRefresh(_token?.call());
+    _jwtTimer = Timer(delay, () => unawaited(_refreshAccess()));
   }
 
   Future<void> _refreshAccess() async {
@@ -130,12 +142,17 @@ class SessionKeepAlive {
     final token = _token?.call();
     if (ok && token != null && token.isNotEmpty) {
       SocketService.instance.updateToken(token);
+      _scheduleJwtRefresh();
       return;
     }
     final api = _api;
     if (api == null) return;
     try {
       await api.getHealth(timeout: const Duration(seconds: 15));
+      _jwtTimer?.cancel();
+      _jwtTimer = Timer(const Duration(minutes: 2), () {
+        unawaited(_refreshAccess());
+      });
     } catch (_) {
       await _beginWake();
     }
@@ -153,6 +170,7 @@ class SessionKeepAlive {
         final token = _token?.call();
         if (ok && token != null && token.isNotEmpty) {
           SocketService.instance.updateToken(token);
+          _scheduleJwtRefresh();
         }
       }
       waking.value = false;

@@ -224,7 +224,11 @@ export class AuthService {
     stored.revokedAt = new Date();
     await this.refreshTokens.save(stored);
 
-    return this.issueSession(user);
+    const tokens = await this.issueSession(user);
+    return {
+      user: await this.toPublicUser(user.id),
+      ...tokens,
+    };
   }
 
   async logout(refreshToken: string) {

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../core/auth/jwt_expiry.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/notifications/push_notification_service.dart';
 import '../../../core/realtime/session_keep_alive.dart';
@@ -39,6 +40,8 @@ class AuthSession extends ChangeNotifier {
   String? errorMessage;
   String? pendingEmailVerificationToken;
   bool promptEmailVerification = false;
+  Future<bool>? _refreshInFlight;
+  bool _refreshRejected = false;
 
   bool get isAuthenticated => user != null;
 
@@ -80,13 +83,18 @@ class AuthSession extends ChangeNotifier {
 
       try {
         final hasAccess = access != null && access.isNotEmpty;
-        await _hydrateFromNetwork(preferRefresh: !hasAccess);
+        final accessExpired = jwtIsExpiredOrNear(access);
+        await _hydrateFromNetwork(
+          preferRefresh: !hasAccess || accessExpired,
+        );
       } on ApiException catch (e) {
-        if (e.statusCode == 401 || e.statusCode == 403) {
+        if ((e.statusCode == 401 || e.statusCode == 403) &&
+            _refreshRejected) {
           await _clearTokens();
           user = null;
         }
-        // Network / cold start: keep cached user + tokens.
+        // Network / cold start / expired access with a still-valid refresh:
+        // keep cached user + tokens.
       } catch (_) {
         // Keep local session if the API is briefly unreachable.
       }
@@ -102,42 +110,79 @@ class AuthSession extends ChangeNotifier {
   Future<void> _hydrateFromNetwork({required bool preferRefresh}) async {
     if (preferRefresh) {
       final ok = await _silentRefresh();
-      if (!ok) {
+      if (ok) {
+        await _loadMeOrKeepCached();
+        return;
+      }
+      if (_refreshRejected) {
         throw ApiException('Session expirée', statusCode: 401);
       }
+      await _loadMeOrKeepCached();
       return;
     }
 
     try {
-      final me = await _api.getMe();
-      user = FutBoliaUser.fromJson(me);
-      await _storage.write(key: _kUser, value: jsonEncode(me));
+      await _loadMeOrKeepCached(required: true);
     } on ApiException catch (e) {
       if (e.statusCode == 401 || e.statusCode == 403) {
         final ok = await _silentRefresh();
-        if (!ok) rethrow;
-        return;
+        if (ok) {
+          await _loadMeOrKeepCached();
+          return;
+        }
+        if (!_refreshRejected) return;
+        rethrow;
       }
       rethrow;
     }
   }
 
+  Future<void> _loadMeOrKeepCached({bool required = false}) async {
+    try {
+      final me = await _api.getMe();
+      user = FutBoliaUser.fromJson(me);
+      await _storage.write(key: _kUser, value: jsonEncode(me));
+    } on ApiException catch (e) {
+      if (!required && (e.statusCode != 401 && e.statusCode != 403)) {
+        return;
+      }
+      if (!required && !_refreshRejected) return;
+      rethrow;
+    } catch (_) {
+      if (required) rethrow;
+    }
+  }
+
   /// Returns true if a new access token was obtained.
-  Future<bool> _silentRefresh() async {
+  Future<bool> _silentRefresh() {
+    final existing = _refreshInFlight;
+    if (existing != null) return existing;
+    final future = _silentRefreshOnce().whenComplete(() {
+      _refreshInFlight = null;
+    });
+    _refreshInFlight = future;
+    return future;
+  }
+
+  Future<bool> _silentRefreshOnce() async {
     final refresh = await _storage.read(key: _kRefresh);
     if (refresh == null || refresh.isEmpty) return false;
 
     try {
       final data = await _api.refresh(refresh);
-      await _persistSession(data);
+      await _persistSession(data, connectRealtime: false);
+      debugPrint('JWT refresh OK');
+      _refreshRejected = false;
       return true;
     } on ApiException catch (e) {
+      debugPrint('JWT refresh failed: ${e.statusCode} ${e.message}');
       if (e.statusCode == 401 || e.statusCode == 403) {
+        _refreshRejected = true;
         return false;
       }
-      // Transient API error — do not wipe session.
       return false;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('JWT refresh failed: $e');
       return false;
     }
   }
@@ -287,23 +332,34 @@ class AuthSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _persistSession(Map<String, dynamic> data) async {
+  Future<void> _persistSession(
+    Map<String, dynamic> data, {
+    bool connectRealtime = true,
+  }) async {
     final access = data['accessToken'] as String?;
     final refresh = data['refreshToken'] as String?;
     if (access == null || refresh == null) {
       throw ApiException('Réponse d’authentification incomplète');
     }
-    final rawUser = data['user'];
-    if (rawUser is! Map) {
-      throw ApiException('Réponse utilisateur invalide');
-    }
-    final userMap = Map<String, dynamic>.from(rawUser);
     await _storage.write(key: _kAccess, value: access);
     await _storage.write(key: _kRefresh, value: refresh);
-    await _storage.write(key: _kUser, value: jsonEncode(userMap));
     _api.setAccessToken(access);
-    user = FutBoliaUser.fromJson(userMap);
-    await _startRealtime();
+
+    final rawUser = data['user'];
+    if (rawUser is Map) {
+      final userMap = Map<String, dynamic>.from(rawUser);
+      await _storage.write(key: _kUser, value: jsonEncode(userMap));
+      user = FutBoliaUser.fromJson(userMap);
+    } else if (user == null) {
+      throw ApiException('Réponse utilisateur invalide');
+    }
+
+    if (connectRealtime) {
+      await _startRealtime();
+    } else {
+      SocketService.instance.updateToken(access);
+      SessionKeepAlive.instance.noteTokenRefresh();
+    }
   }
 
   Future<void> _startRealtime() async {

@@ -22,7 +22,7 @@ class ApiClient {
 
   final http.Client _client;
   String? _accessToken;
-  bool _refreshing = false;
+  Future<bool>? _refreshFuture;
 
   /// Called once on HTTP 401 for authenticated requests. Return true if a new
   /// access token was stored and the request should be retried.
@@ -121,7 +121,11 @@ class ApiClient {
 
   /// Exchange refresh token for a new access + refresh pair.
   Future<Map<String, dynamic>> refresh(String refreshToken) {
-    return _post('/auth/refresh', {'refreshToken': refreshToken});
+    return _post(
+      '/auth/refresh',
+      {'refreshToken': refreshToken},
+      timeout: const Duration(seconds: 60),
+    );
   }
 
   Future<Map<String, dynamic>> getMe() => _get('/users/me', auth: true);
@@ -1266,6 +1270,7 @@ class ApiClient {
     String path,
     Map<String, dynamic> body, {
     bool auth = false,
+    Duration timeout = const Duration(seconds: 45),
   }) async {
     return _withAuthRetry(auth, () async {
       try {
@@ -1275,7 +1280,7 @@ class ApiClient {
               headers: _headers(auth: auth),
               body: jsonEncode(body),
             )
-            .timeout(const Duration(seconds: 45));
+            .timeout(timeout);
         final decoded = _decodeDynamic(response);
         if (decoded is Map<String, dynamic>) return decoded;
         if (decoded is Map) return Map<String, dynamic>.from(decoded);
@@ -1369,21 +1374,27 @@ class ApiClient {
     try {
       return await run();
     } on ApiException catch (e) {
-      if (!auth ||
-          e.statusCode != 401 ||
-          onUnauthorized == null ||
-          _refreshing) {
+      if (!auth || e.statusCode != 401 || onUnauthorized == null) {
         rethrow;
       }
-      _refreshing = true;
-      try {
-        final ok = await onUnauthorized!();
-        if (!ok) rethrow;
-      } finally {
-        _refreshing = false;
-      }
+      final ok = await _ensureFreshToken();
+      if (!ok) rethrow;
       return await run();
     }
+  }
+
+  Future<bool> _ensureFreshToken() {
+    final existing = _refreshFuture;
+    if (existing != null) return existing;
+    final future = () async {
+      try {
+        return await onUnauthorized!();
+      } finally {
+        _refreshFuture = null;
+      }
+    }();
+    _refreshFuture = future;
+    return future;
   }
 
   Uri _uri(String path) => Uri.parse('${AppConfig.apiBaseUrl}$path');
