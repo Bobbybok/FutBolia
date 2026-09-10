@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/i18n/fr_labels.dart';
 import '../../core/network/api_client.dart';
+import '../../core/realtime/live_bindings.dart';
 import '../../design_system/tokens/colors.dart';
 import '../auth/application/auth_session.dart';
 import '../auth/domain/staff_label.dart';
@@ -17,6 +18,7 @@ class _AdminPickupsScreenState extends State<AdminPickupsScreen> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _items = [];
+  final _live = LiveBindings();
 
   ApiClient get _api => context.read<AuthSession>().api;
 
@@ -24,13 +26,24 @@ class _AdminPickupsScreenState extends State<AdminPickupsScreen> {
   void initState() {
     super.initState();
     _reload();
+    _live.listenLobby('pickup', () {
+      if (mounted) _reload(silent: true);
+    });
   }
 
-  Future<void> _reload() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _live.dispose();
+    super.dispose();
+  }
+
+  Future<void> _reload({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final items = await _api.adminListPickupMatches();
       if (!mounted) return;
@@ -41,7 +54,7 @@ class _AdminPickupsScreenState extends State<AdminPickupsScreen> {
         _error = e is ApiException ? e.message : 'Chargement impossible';
       });
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 

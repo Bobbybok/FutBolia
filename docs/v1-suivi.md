@@ -14,13 +14,13 @@ Statuts : **livré** · **pas activé** (code là, pas allumé) · **à faire**.
 
 L’app **MatchArena** (repo FutBolia) tourne sur Flutter (Android + preview web) + API NestJS sur Render + Postgres Neon. On se connecte, on crée/rejoint des tournois (public ou privé par **invitation**, plus de code), on gère les **équipes**, le **mercato** (mode Sélection), les **matchs / scores / classement**, et les **matchs pickup**.
 
-Côté social : **amis** (demande depuis le profil public), **chat tournoi**, **chat d’équipe** et **chat privé** en temps réel (Socket.io), overlay Chat avec barre du bas toujours visible. Staff : **admin / modo**, édition d’utilisateurs, **signalements**. App : branding MatchArena, **thème sombre uniquement**, hub Profil (sport + photo + carrière + amis + réglages), **profil public** (ouvert à tout compte connecté).
+Côté social : **amis** (demande depuis le profil public), **chat tournoi**, **chat d’équipe** et **chat privé** en temps réel (Socket.io), overlay Chat avec barre du bas toujours visible. **Tournois, équipes, matchs, mercato et pickup** se mettent à jour **en direct** pour tous les connectés (plus besoin de pull-to-refresh). Staff : **admin / modo**, édition d’utilisateurs, **signalements**. App : branding MatchArena, **thème sombre uniquement**, hub Profil (sport + photo + carrière + amis + réglages), **profil public** (ouvert à tout compte connecté).
 
 Mots de passe hashés **Argon2**. JWT + refresh. Mot de passe oublié.
 
 **Codé mais pas allumé** : push FCM (inactif sur le navigateur PC), vérif e-mail (désactivée, pas de domaine Resend), forum (API sans écran), **chat inter-équipes**.
 
-**Pas fait** : carte du tournoi, photos de tournoi, écran forum, activer l’e-mail. **Partiel** : trophées joueur (mini-bilan oui).
+**Pas fait** : carte du tournoi, écran forum, activer l’e-mail. **Partiel** : trophées joueur (mini-bilan oui).
 
 ---
 
@@ -33,7 +33,7 @@ App football à 5 / futsal amateur : tournois, équipes, mercato (mode Sélectio
 | App | Flutter Android + preview web PC — branding **MatchArena** |
 | API | NestJS `/api/v1` — Render `https://futbolia-api.onrender.com/api/v1` |
 | Base | Neon Postgres partagée |
-| Temps réel | Socket.io (actif) |
+| Temps réel | Socket.io (chat **et** état live : équipes, tournois, matchs, pickup) |
 | Push | FCM **codé, inactif sur le web PC** |
 | Auth | JWT + refresh, mots de passe **Argon2** |
 
@@ -95,7 +95,7 @@ Lancement : `scripts\launch-phone.ps1` · `-Local` · `scripts\launch-pc.ps1` ·
 - [x] **A8** Équipes : effectif, capitaine, validation orga
   <details><summary>Résumé</summary>
 
-  **Transfert de capitaine** : bouton visible seulement pour le capitaine, l’orga ou un admin. Bouton **Créer une équipe** en haut du tournoi. **Poste FIFA** (GB, DC, BU…) : appuyer sur le joueur. Capitaine, orga et admin : gestion totale même après validation.
+  **Transfert de capitaine** : bouton visible seulement pour le capitaine, l’orga ou un admin. Bouton **Créer une équipe** en haut du tournoi. **Poste FIFA** (GB, DC, BU…) : appuyer sur le joueur. Capitaine, orga et admin : gestion totale même après validation. Tout changement (créer / supprimer une équipe, effectif) s’affiche **en direct** chez tous les joueurs connectés.
 
   </details>
 - [x] **A9** Mercato : sélectionneur + offres
@@ -116,7 +116,7 @@ Lancement : `scripts\launch-phone.ps1` · `-Local` · `scripts\launch-pc.ps1` ·
 - [x] **A11** Chat tournoi Socket.io
   <details><summary>Résumé</summary>
 
-  Fil commun aux participants. Temps réel Socket.io. Suppression auteur ou orga. Aussi dans l’overlay Chat.
+  Fil commun aux participants. Temps réel Socket.io. Suppression auteur ou orga. Aussi dans l’overlay Chat. Même canal : listes et fiches (équipes, matchs, pickup) se rechargent sans pull-to-refresh.
 
   </details>
 - [x] **A21** Chat d’équipe + roster orga
@@ -230,10 +230,10 @@ Ne pas traiter comme OK tant que ce n’est pas branché.
   Pas encore codé. Zone du tournoi sur une carte, pas seulement un texte ville.
 
   </details>
-- [ ] **C3** Photos de **tournoi** (avatar profil déjà en A20)
+- [x] **C3** Photos de **tournoi** + album
   <details><summary>Résumé</summary>
 
-  Photo de profil : upload dans l’app, fichier en base Postgres. **Pas** d’upload visuel tournoi, pas de stockage R2.
+  Photo du tournoi (cover) : orga et admin `manage_tournaments`. Album : orga et admin ajoutent / suppriment ; les **capitaines** peuvent seulement ajouter (24 photos, JPEG/PNG/WebP, Postgres). Listes et fiche se mettent à jour en live.
 
   </details>
 - [ ] **C4** Écran Forum

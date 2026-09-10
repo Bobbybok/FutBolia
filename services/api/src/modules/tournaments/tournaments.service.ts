@@ -19,12 +19,26 @@ import {
 } from '../../common/enums';
 import { User } from '../users/entities/user.entity';
 import { Tournament } from './entities/tournament.entity';
+import { TournamentCover } from './entities/tournament-cover.entity';
+import { TournamentPhoto } from './entities/tournament-photo.entity';
 import { TournamentMember } from './entities/tournament-member.entity';
+import { Team } from '../teams/entities/team.entity';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { UpdateTournamentDto } from './dto/update-tournament.dto';
 import { actorCanManageTournaments } from '../../common/staff-access';
 import { TeamsService } from '../teams/teams.service';
 import { TeamMember } from '../teams/entities/team-member.entity';
+import { LiveEventsService } from '../realtime/services/live-events.service';
+
+const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const PHOTO_MAX_BYTES = 1536 * 1024;
+const ALBUM_MAX_PHOTOS = 24;
+
+type UploadedImage = {
+  buffer?: Buffer;
+  mimetype?: string;
+  size?: number;
+};
 
 @Injectable()
 export class TournamentsService {
@@ -32,6 +46,7 @@ export class TournamentsService {
     @Inject(TYPEORM_DATA_SOURCE) private readonly dataSource: DataSource | null,
     private readonly config: ConfigService,
     private readonly teams: TeamsService,
+    private readonly live: LiveEventsService,
   ) {}
 
   private get db(): DataSource {
@@ -51,6 +66,18 @@ export class TournamentsService {
 
   private get users(): Repository<User> {
     return this.db.getRepository(User);
+  }
+
+  private get covers(): Repository<TournamentCover> {
+    return this.db.getRepository(TournamentCover);
+  }
+
+  private get photos(): Repository<TournamentPhoto> {
+    return this.db.getRepository(TournamentPhoto);
+  }
+
+  private get teamRows(): Repository<Team> {
+    return this.db.getRepository(Team);
   }
 
   async create(userId: string, dto: CreateTournamentDto) {
@@ -88,6 +115,7 @@ export class TournamentsService {
       }),
     );
 
+    await this.ping(tournament.id, 'tournament.created');
     return this.getById(tournament.id, userId);
   }
 
@@ -188,11 +216,13 @@ export class TournamentsService {
     }
 
     await this.tournaments.save(tournament);
+    await this.ping(id, 'tournament.updated');
     return this.getById(id, userId);
   }
 
   async remove(id: string, userId: string) {
     const tournament = await this.requireOrganizer(id, userId);
+    await this.ping(id, 'tournament.deleted', { actorId: userId });
     await this.tournaments.remove(tournament);
     return {
       success: true,
@@ -247,6 +277,7 @@ export class TournamentsService {
       }),
     );
 
+    await this.ping(id, 'tournament.member');
     return this.getById(id, userId);
   }
 
@@ -276,6 +307,7 @@ export class TournamentsService {
 
     await this.teams.detachUserFromTournament(id, userId);
     await this.members.delete({ id: membership.id });
+    await this.ping(id, 'tournament.member');
     return { success: true };
   }
 
@@ -311,6 +343,7 @@ export class TournamentsService {
         role: TournamentMemberRole.PLAYER,
       }),
     );
+    await this.ping(id, 'tournament.member');
     return this.listMembers(id, actorId);
   }
 
@@ -338,6 +371,7 @@ export class TournamentsService {
 
     await this.teams.detachUserFromTournament(id, userId);
     await this.members.delete({ id: membership.id });
+    await this.ping(id, 'tournament.member');
     return this.listMembers(id, actorId);
   }
 
@@ -409,6 +443,130 @@ export class TournamentsService {
     });
   }
 
+  async saveCover(id: string, userId: string, file: UploadedImage | undefined) {
+    await this.requireOrganizer(id, userId);
+    const image = this.readImage(file);
+    const existing = await this.covers.findOne({ where: { tournamentId: id } });
+    const row = existing ?? this.covers.create({ tournamentId: id });
+    row.mimeType = image.mimetype;
+    row.data = image.buffer;
+    await this.covers.save(row);
+    const tournament = await this.requireTournamentRow(id);
+    tournament.imageUrl = `/tournaments/${id}/cover?v=${Date.now()}`;
+    await this.tournaments.save(tournament);
+    this.ping(id, 'tournament.updated', { actorId: userId });
+    return this.getById(id, userId);
+  }
+
+  async deleteCover(id: string, userId: string) {
+    await this.requireOrganizer(id, userId);
+    const existing = await this.covers.findOne({ where: { tournamentId: id } });
+    if (existing) await this.covers.remove(existing);
+    const tournament = await this.requireTournamentRow(id);
+    tournament.imageUrl = null;
+    await this.tournaments.save(tournament);
+    this.ping(id, 'tournament.updated', { actorId: userId });
+    return this.getById(id, userId);
+  }
+
+  async getCover(id: string): Promise<{ data: Buffer; mimeType: string }> {
+    const cover = await this.covers.findOne({ where: { tournamentId: id } });
+    if (!cover) {
+      throw new NotFoundException('Photo du tournoi introuvable');
+    }
+    return { data: cover.data, mimeType: cover.mimeType };
+  }
+
+  async listPhotos(id: string, viewerId?: string) {
+    await this.requireTournamentRow(id);
+    const canDelete = viewerId
+      ? await this.canDeleteAlbum(id, viewerId)
+      : false;
+    const rows = await this.photos
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.uploadedBy', 'u')
+      .leftJoinAndSelect('u.profile', 'pr')
+      .select([
+        'p.id',
+        'p.tournamentId',
+        'p.uploadedById',
+        'p.createdAt',
+        'u.id',
+        'pr.pseudo',
+      ])
+      .where('p.tournamentId = :id', { id })
+      .orderBy('p.createdAt', 'DESC')
+      .getMany();
+    return rows.map((row) => ({
+      id: row.id,
+      url: `/tournaments/${id}/photos/${row.id}`,
+      uploadedById: row.uploadedById,
+      uploadedBy: {
+        id: row.uploadedById,
+        pseudo: row.uploadedBy?.profile?.pseudo ?? null,
+      },
+      createdAt: row.createdAt,
+      canDelete,
+    }));
+  }
+
+  async addPhoto(id: string, userId: string, file: UploadedImage | undefined) {
+    await this.requireAlbumEditor(id, userId);
+    const image = this.readImage(file);
+    const count = await this.photos.count({ where: { tournamentId: id } });
+    if (count >= ALBUM_MAX_PHOTOS) {
+      throw new BadRequestException(
+        `L’album est plein (${ALBUM_MAX_PHOTOS} photos max)`,
+      );
+    }
+    const row = await this.photos.save(
+      this.photos.create({
+        tournamentId: id,
+        uploadedById: userId,
+        mimeType: image.mimetype,
+        data: image.buffer,
+      }),
+    );
+    this.ping(id, 'tournament.updated', { actorId: userId });
+    return {
+      id: row.id,
+      url: `/tournaments/${id}/photos/${row.id}`,
+      uploadedById: userId,
+      createdAt: row.createdAt,
+      canDelete: await this.canDeleteAlbum(id, userId),
+    };
+  }
+
+  async deletePhoto(id: string, photoId: string, userId: string) {
+    if (!(await this.canDeleteAlbum(id, userId))) {
+      throw new ForbiddenException(
+        'Seul l’organisateur ou un admin peut supprimer une photo',
+      );
+    }
+    const photo = await this.photos.findOne({
+      where: { id: photoId, tournamentId: id },
+    });
+    if (!photo) {
+      throw new NotFoundException('Photo introuvable');
+    }
+    await this.photos.remove(photo);
+    this.ping(id, 'tournament.updated', { actorId: userId });
+    return { success: true, id: photoId };
+  }
+
+  async getPhoto(
+    id: string,
+    photoId: string,
+  ): Promise<{ data: Buffer; mimeType: string }> {
+    const photo = await this.photos.findOne({
+      where: { id: photoId, tournamentId: id },
+    });
+    if (!photo) {
+      throw new NotFoundException('Photo introuvable');
+    }
+    return { data: photo.data, mimeType: photo.mimeType };
+  }
+
   private async requireVerifiedEmail(userId: string) {
     const required =
       (this.config.get<string>('EMAIL_VERIFICATION_REQUIRED') ?? 'false')
@@ -452,6 +610,66 @@ export class TournamentsService {
     return tournament;
   }
 
+  private async requireTournamentRow(id: string) {
+    const tournament = await this.tournaments.findOne({ where: { id } });
+    if (!tournament) {
+      throw new NotFoundException('Tournoi introuvable');
+    }
+    return tournament;
+  }
+
+  private async canDeleteAlbum(tournamentId: string, userId: string) {
+    const tournament = await this.requireTournamentRow(tournamentId);
+    if (tournament.createdById === userId) return true;
+    const membership = await this.members.findOne({
+      where: {
+        tournamentId,
+        userId,
+        role: TournamentMemberRole.ORGANIZER,
+      },
+    });
+    if (membership) return true;
+    return actorCanManageTournaments(this.db, userId);
+  }
+
+  private async canEditAlbum(tournamentId: string, userId: string) {
+    if (await this.canDeleteAlbum(tournamentId, userId)) return true;
+    const captain = await this.teamRows.findOne({
+      where: { tournamentId, captainId: userId },
+    });
+    return Boolean(captain);
+  }
+
+  private async requireAlbumEditor(tournamentId: string, userId: string) {
+    const allowed = await this.canEditAlbum(tournamentId, userId);
+    if (!allowed) {
+      throw new ForbiddenException(
+        'Seul l’organisateur, un capitaine ou un admin peut ajouter une photo',
+      );
+    }
+  }
+
+  private readImage(file: UploadedImage | undefined) {
+    if (!file?.buffer || !file.mimetype) {
+      throw new BadRequestException('Ajoute une photo (JPEG, PNG ou WebP)');
+    }
+    if (!PHOTO_TYPES.has(file.mimetype)) {
+      throw new BadRequestException('Format accepté : JPEG, PNG ou WebP');
+    }
+    if ((file.size ?? file.buffer.length) > PHOTO_MAX_BYTES) {
+      throw new BadRequestException('Photo trop lourde (1,5 Mo max)');
+    }
+    return { buffer: file.buffer, mimetype: file.mimetype };
+  }
+
+  private ping(
+    tournamentId: string,
+    reason: string,
+    extra: Record<string, unknown> = {},
+  ) {
+    void this.live.tournamentChanged(tournamentId, reason, extra);
+  }
+
   private async toPublic(
     tournament: Tournament,
     viewerId?: string,
@@ -470,6 +688,14 @@ export class TournamentsService {
     const staff = viewerId
       ? await actorCanManageTournaments(this.db, viewerId)
       : false;
+
+    let canManageAlbum = Boolean(isOrganizer || staff);
+    if (includeMembersCount && viewerId && !canManageAlbum) {
+      const captain = await this.teamRows.findOne({
+        where: { tournamentId: tournament.id, captainId: viewerId },
+      });
+      canManageAlbum = Boolean(captain);
+    }
 
     let membersCount: number | undefined;
     if (includeMembersCount) {
@@ -497,6 +723,7 @@ export class TournamentsService {
       myRole: membership?.role ?? null,
       isOrganizer: Boolean(isOrganizer),
       canManage: Boolean(isOrganizer || staff),
+      canManageAlbum,
       canCreateTeam: Boolean(
         (isOrganizer || staff) ||
           (membership != null &&

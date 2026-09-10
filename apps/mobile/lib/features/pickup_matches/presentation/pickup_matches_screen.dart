@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/realtime/live_bindings.dart';
 import '../../../core/i18n/fr_labels.dart';
 import '../../../design_system/components/fb_atmosphere.dart';
 import '../../../design_system/components/fb_badge.dart';
@@ -24,25 +25,32 @@ class _PickupMatchesScreenState extends State<PickupMatchesScreen>
   List<Map<String, dynamic>> _mine = [];
   bool _loading = true;
   String? _error;
+  final _live = LiveBindings();
 
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
     _load();
+    _live.listenLobby('pickup', () {
+      if (mounted) _load(silent: true);
+    });
   }
 
   @override
   void dispose() {
+    _live.dispose();
     _tabs.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final api = context.read<AuthSession>().api;
       final discover = await api.listPickupMatches();
@@ -56,7 +64,7 @@ class _PickupMatchesScreenState extends State<PickupMatchesScreen>
       if (!mounted) return;
       setState(() => _error = e.message);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 

@@ -75,7 +75,6 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
 
   @override
   void dispose() {
-    SocketService.instance.leaveTournament(widget.tournamentId);
     for (final sub in _subs) {
       sub.cancel();
     }

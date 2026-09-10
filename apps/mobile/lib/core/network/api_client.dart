@@ -376,9 +376,76 @@ class ApiClient {
     required String filename,
     String contentType = 'image/jpeg',
   }) {
+    return _uploadMultipart(
+      '/users/me/avatar',
+      bytes: bytes,
+      filename: filename,
+      contentType: contentType,
+    );
+  }
+
+  Future<Map<String, dynamic>> uploadTournamentCover({
+    required String tournamentId,
+    required List<int> bytes,
+    required String filename,
+    String contentType = 'image/jpeg',
+  }) {
+    return _uploadMultipart(
+      '/tournaments/$tournamentId/cover',
+      bytes: bytes,
+      filename: filename,
+      contentType: contentType,
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteTournamentCover(String tournamentId) {
+    return _delete('/tournaments/$tournamentId/cover');
+  }
+
+  Future<List<Map<String, dynamic>>> listTournamentPhotos(
+    String tournamentId,
+  ) async {
+    final decoded =
+        await _getDynamic('/tournaments/$tournamentId/photos', auth: true);
+    if (decoded is! List) {
+      throw ApiException('Réponse album invalide');
+    }
+    return decoded
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> uploadTournamentPhoto({
+    required String tournamentId,
+    required List<int> bytes,
+    required String filename,
+    String contentType = 'image/jpeg',
+  }) {
+    return _uploadMultipart(
+      '/tournaments/$tournamentId/photos',
+      bytes: bytes,
+      filename: filename,
+      contentType: contentType,
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteTournamentPhoto({
+    required String tournamentId,
+    required String photoId,
+  }) {
+    return _delete('/tournaments/$tournamentId/photos/$photoId');
+  }
+
+  Future<Map<String, dynamic>> _uploadMultipart(
+    String path, {
+    required List<int> bytes,
+    required String filename,
+    String contentType = 'image/jpeg',
+  }) {
     return _withAuthRetry(true, () async {
       try {
-        final request = http.MultipartRequest('POST', _uri('/users/me/avatar'));
+        final request = http.MultipartRequest('POST', _uri(path));
         final headers = _headers(auth: true);
         headers.remove('Content-Type');
         request.headers.addAll(headers);

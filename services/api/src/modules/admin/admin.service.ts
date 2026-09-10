@@ -40,10 +40,12 @@ import { Team } from '../teams/entities/team.entity';
 import { Match } from '../matches/entities/match.entity';
 import { PickupMatch } from '../pickup-matches/entities/pickup-match.entity';
 import { ProfileAvatar } from '../users/entities/profile-avatar.entity';
+import { TournamentCover } from '../tournaments/entities/tournament-cover.entity';
 import { TournamentChatMessage } from '../chat/entities/tournament-chat-message.entity';
 import { DirectMessage } from '../private-chat/entities/direct-message.entity';
 import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { AuthService } from '../auth/auth.service';
+import { LiveEventsService } from '../realtime/services/live-events.service';
 import { AuthUser } from '../../common/decorators/current-user.decorator';
 import {
   BanUserDto,
@@ -64,6 +66,7 @@ export class AdminService {
   constructor(
     @Inject(TYPEORM_DATA_SOURCE) private readonly dataSource: DataSource | null,
     private readonly auth: AuthService,
+    private readonly live: LiveEventsService,
   ) {}
 
   private get db(): DataSource {
@@ -115,6 +118,10 @@ export class AdminService {
 
   private get avatars(): Repository<ProfileAvatar> {
     return this.db.getRepository(ProfileAvatar);
+  }
+
+  private get covers(): Repository<TournamentCover> {
+    return this.db.getRepository(TournamentCover);
   }
 
   private get messages(): Repository<TournamentChatMessage> {
@@ -533,6 +540,7 @@ export class AdminService {
         return {
           id: t.id,
           name: t.name,
+          imageUrl: t.imageUrl,
           status: t.status,
           mode: t.mode,
           visibility: t.visibility,
@@ -575,15 +583,26 @@ export class AdminService {
     if (dto.mode) tournament.mode = dto.mode;
     if (dto.visibility) tournament.visibility = dto.visibility;
     if (dto.status) tournament.status = dto.status;
+    if (dto.clearCover) {
+      const cover = await this.covers.findOne({
+        where: { tournamentId },
+      });
+      if (cover) await this.covers.remove(cover);
+      tournament.imageUrl = null;
+    }
     await this.tournaments.save(tournament);
     await this.audit(actor.id, 'patch_tournament', tournamentId, {
       ...dto,
     });
+    void this.live.tournamentChanged(tournamentId, 'tournament.updated');
     return { success: true, id: tournament.id };
   }
 
   async deleteTournament(actor: AuthUser, tournamentId: string) {
     await this.requireTournament(tournamentId);
+    void this.live.tournamentChanged(tournamentId, 'tournament.deleted', {
+      actorId: actor.id,
+    });
     await this.tournaments.delete({ id: tournamentId });
     await this.audit(actor.id, 'delete_tournament', tournamentId, {});
     return { success: true };
@@ -618,6 +637,7 @@ export class AdminService {
       from: previous,
       to: newOwnerId,
     });
+    void this.live.tournamentChanged(tournamentId, 'tournament.updated');
     return { success: true };
   }
 
@@ -635,6 +655,9 @@ export class AdminService {
     await this.audit(actor.id, 'force_team_status', teamId, {
       status: dto.status,
     });
+    void this.live.tournamentChanged(team.tournamentId, 'team.updated', {
+      teamId,
+    });
     return { id: team.id, status: team.status };
   }
 
@@ -647,6 +670,9 @@ export class AdminService {
     if (dto.status) team.status = dto.status;
     await this.teams.save(team);
     await this.audit(actor.id, 'patch_team', teamId, { ...dto });
+    void this.live.tournamentChanged(team.tournamentId, 'team.updated', {
+      teamId,
+    });
     return { id: team.id, name: team.name, status: team.status };
   }
 
@@ -657,6 +683,10 @@ export class AdminService {
     }
     await this.teams.remove(team);
     await this.audit(actor.id, 'delete_team', teamId, {});
+    void this.live.tournamentChanged(team.tournamentId, 'team.deleted', {
+      teamId,
+      actorId: actor.id,
+    });
     return { success: true };
   }
 
@@ -681,6 +711,7 @@ export class AdminService {
     }
     await this.matches.save(match);
     await this.audit(actor.id, 'patch_match', matchId, { ...dto });
+    void this.live.tournamentChanged(match.tournamentId, 'match.updated');
     return {
       id: match.id,
       status: match.status,
@@ -697,6 +728,7 @@ export class AdminService {
     }
     await this.matches.remove(match);
     await this.audit(actor.id, 'delete_match', matchId, {});
+    void this.live.tournamentChanged(match.tournamentId, 'match.deleted');
     return { success: true };
   }
 
@@ -745,6 +777,7 @@ export class AdminService {
     }
     await this.pickups.save(match);
     await this.audit(actor.id, 'patch_pickup', id, { ...dto });
+    void this.live.pickupChanged(id, 'pickup.updated');
     return { success: true, id: match.id, status: match.status };
   }
 
@@ -753,6 +786,7 @@ export class AdminService {
     if (!match) {
       throw new NotFoundException('Match libre introuvable');
     }
+    void this.live.pickupChanged(id, 'pickup.deleted', { actorId: actor.id });
     await this.pickups.remove(match);
     await this.audit(actor.id, 'delete_pickup', id, {});
     return { success: true };

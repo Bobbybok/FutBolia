@@ -16,6 +16,9 @@ export const RealtimeEvents = {
   friendAccepted: 'friend:accepted',
   tournamentInvite: 'tournament:invite',
   pickupInvite: 'pickup:invite',
+  tournamentUpdated: 'tournament:updated',
+  pickupUpdated: 'pickup:updated',
+  lobbyChanged: 'lobby:changed',
 } as const;
 
 export type RealtimeEvent =

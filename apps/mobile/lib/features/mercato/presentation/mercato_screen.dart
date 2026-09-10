@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/i18n/fr_labels.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/realtime/live_bindings.dart';
 import '../../../design_system/components/fb_badge.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
@@ -33,6 +34,7 @@ class _MercatoScreenState extends State<MercatoScreen> {
   bool _loading = true;
   String? _error;
   String? _activeTeamId;
+  final _live = LiveBindings();
 
   @override
   void initState() {
@@ -42,13 +44,24 @@ class _MercatoScreenState extends State<MercatoScreen> {
             ? widget.offerTeams.first['id']?.toString()
             : null);
     _load();
+    _live.listenTournament(widget.tournamentId, (_) {
+      if (mounted) _load(silent: true);
+    });
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _live.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final api = context.read<AuthSession>().api;
       final board = await api.getMercato(widget.tournamentId);
@@ -62,7 +75,7 @@ class _MercatoScreenState extends State<MercatoScreen> {
       if (!mounted) return;
       setState(() => _error = e.message);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 

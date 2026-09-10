@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/network/api_client.dart';
+import '../../core/realtime/live_bindings.dart';
 import '../../design_system/tokens/colors.dart';
 import '../auth/application/auth_session.dart';
 import '../auth/domain/staff_label.dart';
 import '../tournaments/presentation/edit_tournament_screen.dart';
+import '../tournaments/presentation/tournament_photos.dart';
 
 class AdminTournamentsScreen extends StatefulWidget {
   const AdminTournamentsScreen({super.key});
@@ -17,6 +19,7 @@ class _AdminTournamentsScreenState extends State<AdminTournamentsScreen> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _items = [];
+  final _live = LiveBindings();
 
   ApiClient get _api => context.read<AuthSession>().api;
 
@@ -24,13 +27,24 @@ class _AdminTournamentsScreenState extends State<AdminTournamentsScreen> {
   void initState() {
     super.initState();
     _reload();
+    _live.listenLobby('tournament', () {
+      if (mounted) _reload(silent: true);
+    });
   }
 
-  Future<void> _reload() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _live.dispose();
+    super.dispose();
+  }
+
+  Future<void> _reload({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final items = await _api.adminListTournaments();
       if (!mounted) return;
@@ -41,7 +55,7 @@ class _AdminTournamentsScreenState extends State<AdminTournamentsScreen> {
         _error = e is ApiException ? e.message : 'Chargement impossible';
       });
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 
@@ -70,6 +84,10 @@ class _AdminTournamentsScreenState extends State<AdminTournamentsScreen> {
             ..._items.map(
               (t) => Card(
                 child: ListTile(
+                  leading: TournamentListThumb(
+                    imageUrl: t['imageUrl']?.toString(),
+                    size: 48,
+                  ),
                   title: Text(t['name']?.toString() ?? ''),
                   subtitle: Text(
                     '${t['status']} · ${t['memberCount']} joueurs · orga ${staffPseudoOf(t['owner'])}',
@@ -98,6 +116,7 @@ class _AdminTournamentDetailState extends State<_AdminTournamentDetail> {
   bool _busy = false;
   List<Map<String, dynamic>> _teams = [];
   List<Map<String, dynamic>> _matches = [];
+  final _live = LiveBindings();
 
   ApiClient get _api => context.read<AuthSession>().api;
   String get _id => widget.tournament['id'] as String;
@@ -106,14 +125,25 @@ class _AdminTournamentDetailState extends State<_AdminTournamentDetail> {
   void initState() {
     super.initState();
     _loadExtras();
+    _live.listenTournament(_id, (_) {
+      if (mounted) _loadExtras();
+    });
+  }
+
+  @override
+  void dispose() {
+    _live.dispose();
+    super.dispose();
   }
 
   Future<void> _loadExtras() async {
     try {
+      final tournament = await _api.getTournament(_id);
       final teams = await _api.adminListTournamentTeams(_id);
       final matches = await _api.adminListTournamentMatches(_id);
       if (!mounted) return;
       setState(() {
+        widget.tournament.addAll(tournament);
         _teams = teams;
         _matches = matches;
       });
@@ -276,6 +306,18 @@ class _AdminTournamentDetailState extends State<_AdminTournamentDetail> {
         children: [
           Text('Statut : ${t['status']}'),
           Text('Lieu : ${t['location']}'),
+          const SizedBox(height: 12),
+          TournamentCoverBanner(
+            tournamentId: _id,
+            imageUrl: t['imageUrl']?.toString(),
+            canEdit: true,
+            onChanged: _loadExtras,
+          ),
+          const SizedBox(height: 16),
+          TournamentAlbumSection(
+            tournamentId: _id,
+            canManage: true,
+          ),
           if (_busy) const LinearProgressIndicator(),
           const SizedBox(height: 16),
           OutlinedButton(

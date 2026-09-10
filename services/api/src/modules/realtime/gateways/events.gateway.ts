@@ -15,12 +15,18 @@ import {
 import { Server, Socket } from 'socket.io';
 import { DataSource } from 'typeorm';
 import { authUserFromAccessPayload } from '../../../common/auth-user-from-payload';
-import { isStaff, TournamentMemberRole } from '../../../common/enums';
+import {
+  isStaff,
+  TournamentMemberRole,
+  TournamentVisibility,
+} from '../../../common/enums';
 import { TYPEORM_DATA_SOURCE } from '../../../database/database.module';
 import { TournamentMember } from '../../tournaments/entities/tournament-member.entity';
 import { Tournament } from '../../tournaments/entities/tournament.entity';
 import { TeamMember } from '../../teams/entities/team-member.entity';
 import { Team } from '../../teams/entities/team.entity';
+import { PickupMatchMember } from '../../pickup-matches/entities/pickup-match-member.entity';
+import { PickupMatch } from '../../pickup-matches/entities/pickup-match.entity';
 import { User } from '../../users/entities/user.entity';
 import { actorCanManageTournaments } from '../../../common/staff-access';
 import { ConnectionRegistryService } from '../services/connection-registry.service';
@@ -76,6 +82,7 @@ export class EventsGateway
       client.data.userId = user.id;
       this.registry.add(user.id, client.id);
       await client.join(this.dispatch.userRoom(user.id));
+      await this.joinLiveRooms(client, user.id);
       this.logger.log(`Socket connecté user=${user.id}`);
     } catch {
       this.logger.warn(`Socket ${client.id} rejeté (JWT invalide ou expiré)`);
@@ -163,6 +170,31 @@ export class EventsGateway
     return { ok: true };
   }
 
+  @SubscribeMessage('joinPickup')
+  async joinPickup(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: string | { matchId?: string },
+  ) {
+    const userId = this.requireUser(client);
+    const matchId = this.readId(body, 'matchId');
+    if (!userId || !matchId) return { ok: false };
+    const allowed = await this.canJoinPickup(userId, matchId);
+    if (!allowed) return { ok: false };
+    await client.join(this.dispatch.pickupRoom(matchId));
+    return { ok: true };
+  }
+
+  @SubscribeMessage('leavePickup')
+  async leavePickup(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: string | { matchId?: string },
+  ) {
+    const matchId = this.readId(body, 'matchId');
+    if (!matchId) return { ok: false };
+    await client.leave(this.dispatch.pickupRoom(matchId));
+    return { ok: true };
+  }
+
   @SubscribeMessage('app:foreground')
   handleForeground(@ConnectedSocket() client: Socket) {
     this.registry.setForeground(client.id, true);
@@ -199,8 +231,11 @@ export class EventsGateway
   }
 
   private readId(
-    body: string | { tournamentId?: string; teamId?: string } | undefined,
-    key: 'tournamentId' | 'teamId',
+    body:
+      | string
+      | { tournamentId?: string; teamId?: string; matchId?: string }
+      | undefined,
+    key: 'tournamentId' | 'teamId' | 'matchId',
   ) {
     if (typeof body === 'string' && body.trim()) return body.trim();
     if (body && typeof body === 'object' && typeof body[key] === 'string') {
@@ -209,12 +244,65 @@ export class EventsGateway
     return null;
   }
 
+  private async joinLiveRooms(client: Socket, userId: string) {
+    await client.join(this.dispatch.lobbyRoom());
+    if (!this.dataSource) return;
+    const tournaments = await this.dataSource
+      .getRepository(TournamentMember)
+      .find({ where: { userId }, select: ['tournamentId'] });
+    for (const row of tournaments) {
+      await client.join(this.dispatch.tournamentRoom(row.tournamentId));
+    }
+    const ownedTournaments = await this.dataSource
+      .getRepository(Tournament)
+      .find({ where: { createdById: userId }, select: ['id'] });
+    for (const row of ownedTournaments) {
+      await client.join(this.dispatch.tournamentRoom(row.id));
+    }
+    const pickups = await this.dataSource
+      .getRepository(PickupMatchMember)
+      .find({ where: { userId }, select: ['matchId'] });
+    for (const row of pickups) {
+      await client.join(this.dispatch.pickupRoom(row.matchId));
+    }
+    const ownedPickups = await this.dataSource
+      .getRepository(PickupMatch)
+      .find({ where: { createdById: userId }, select: ['id'] });
+    for (const row of ownedPickups) {
+      await client.join(this.dispatch.pickupRoom(row.id));
+    }
+  }
+
+  private async canJoinPickup(userId: string, matchId: string) {
+    if (!this.dataSource) return false;
+    const member = await this.dataSource.getRepository(PickupMatchMember).findOne({
+      where: { matchId, userId },
+    });
+    if (member) return true;
+    const match = await this.dataSource.getRepository(PickupMatch).findOne({
+      where: { id: matchId },
+    });
+    if (!match) return false;
+    if (match.createdById === userId) return true;
+    if (match.visibility === TournamentVisibility.PUBLIC) return true;
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { id: userId },
+    });
+    return isStaff(user?.globalRole);
+  }
+
   private async canJoinTournament(userId: string, tournamentId: string) {
     if (!this.dataSource) return false;
     const member = await this.dataSource.getRepository(TournamentMember).findOne({
       where: { tournamentId, userId },
     });
     if (member) return true;
+    const tournament = await this.dataSource.getRepository(Tournament).findOne({
+      where: { id: tournamentId },
+    });
+    if (!tournament) return false;
+    if (tournament.createdById === userId) return true;
+    if (tournament.visibility === TournamentVisibility.PUBLIC) return true;
     const user = await this.dataSource.getRepository(User).findOne({
       where: { id: userId },
     });

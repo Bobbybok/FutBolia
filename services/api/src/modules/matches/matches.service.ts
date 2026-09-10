@@ -20,11 +20,13 @@ import { Match } from './entities/match.entity';
 import { CreateMatchDto } from './dto/create-match.dto';
 import { UpdateMatchDto } from './dto/update-match.dto';
 import { actorCanManageTournaments } from '../../common/staff-access';
+import { LiveEventsService } from '../realtime/services/live-events.service';
 
 @Injectable()
 export class MatchesService {
   constructor(
     @Inject(TYPEORM_DATA_SOURCE) private readonly dataSource: DataSource | null,
+    private readonly live: LiveEventsService,
   ) {}
 
   private get db(): DataSource {
@@ -105,6 +107,7 @@ export class MatchesService {
     );
 
     await this.markTournamentInProgress(tournament);
+    await this.ping(tournamentId, 'match.created');
     return this.getById(match.id, actorId);
   }
 
@@ -165,6 +168,7 @@ export class MatchesService {
     }
 
     const all = await this.listByTournament(tournamentId, actorId);
+    await this.ping(tournamentId, 'match.generated');
     return {
       createdCount: created.length,
       matches: all,
@@ -224,6 +228,7 @@ export class MatchesService {
     }
 
     await this.matches.save(match);
+    await this.ping(match.tournamentId, 'match.updated');
     return this.getById(matchId, actorId);
   }
 
@@ -245,6 +250,7 @@ export class MatchesService {
     }
 
     await this.matches.remove(match);
+    await this.ping(match.tournamentId, 'match.deleted');
     return { success: true, message: 'Match supprimé', id: matchId };
   }
 
@@ -355,6 +361,10 @@ export class MatchesService {
         'Impossible de gérer les matchs d’un tournoi terminé ou annulé',
       );
     }
+  }
+
+  private ping(tournamentId: string, reason: string) {
+    void this.live.tournamentChanged(tournamentId, reason);
   }
 
   private async requireTournament(tournamentId: string) {

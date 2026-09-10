@@ -211,4 +211,26 @@ export async function ensureSchema(ds: DataSource): Promise<void> {
       END IF;
     END $$;
   `);
+  await ds.query(`
+    CREATE TABLE IF NOT EXISTS tournament_covers (
+      tournament_id uuid PRIMARY KEY REFERENCES tournaments(id) ON DELETE CASCADE,
+      mime_type varchar(64) NOT NULL,
+      data bytea NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  await ds.query(`
+    CREATE TABLE IF NOT EXISTS tournament_photos (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      tournament_id uuid NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      uploaded_by_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      mime_type varchar(64) NOT NULL,
+      data bytea NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  await ds.query(`
+    CREATE INDEX IF NOT EXISTS tournament_photos_tournament_id_idx
+      ON tournament_photos (tournament_id)
+  `);
 }

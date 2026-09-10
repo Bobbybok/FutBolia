@@ -36,4 +36,4 @@ Reconnecte-toi dans l’app pour un JWT à jour. L’onglet **Admin** apparaît 
 
 Toute action grant/revoke est tracée dans `audit_logs` et invalide les refresh tokens de la cible.
 
-Les modules users (ban), tournois, modération, stats, sécurité viendront ensuite.
+Les modules users (ban), tournois (y compris photo de couverture + album), modération, stats, sécurité sont branchés. Un admin `manage_tournaments` peut changer / retirer la photo du tournoi et gérer l’album comme l’orga.

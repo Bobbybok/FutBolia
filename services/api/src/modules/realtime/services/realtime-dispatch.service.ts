@@ -34,8 +34,34 @@ export class RealtimeDispatchService {
     return `interTeam:${tournamentId}`;
   }
 
+  pickupRoom(matchId: string) {
+    return `pickup:${matchId}`;
+  }
+
+  lobbyRoom() {
+    return 'lobby';
+  }
+
   emitToRoom(room: string, event: string, payload: unknown) {
     this.server?.to(room).emit(event, payload);
+  }
+
+  async notifyUsers(
+    userIds: Iterable<string>,
+    event: string,
+    payload: unknown,
+  ) {
+    const unique = [...new Set([...userIds].filter(Boolean))];
+    await Promise.all(
+      unique.map((userId) =>
+        this.notifyUser({
+          userId,
+          event,
+          payload,
+          skipPush: true,
+        }),
+      ),
+    );
   }
 
   /**

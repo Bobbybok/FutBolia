@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/i18n/fr_labels.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/realtime/live_bindings.dart';
 import '../../../design_system/components/fb_badge.dart';
 import '../../../design_system/components/fb_button.dart';
 import '../../../design_system/tokens/colors.dart';
@@ -27,18 +28,30 @@ class _MatchesScreenState extends State<MatchesScreen> {
   List<Map<String, dynamic>> _teams = [];
   bool _loading = true;
   String? _error;
+  final _live = LiveBindings();
 
   @override
   void initState() {
     super.initState();
     _load();
+    _live.listenTournament(widget.tournamentId, (_) {
+      if (mounted) _load(silent: true);
+    });
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _live.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final api = context.read<AuthSession>().api;
       final matches = await api.listMatches(widget.tournamentId);
@@ -54,7 +67,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       if (!mounted) return;
       setState(() => _error = e.message);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 

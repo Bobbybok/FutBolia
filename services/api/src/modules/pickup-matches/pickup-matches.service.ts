@@ -24,12 +24,14 @@ import { ScorePickupMatchDto } from './dto/score-pickup-match.dto';
 import { AddPickupMemberDto } from './dto/add-pickup-member.dto';
 import { UpdatePickupMemberDto } from './dto/update-pickup-member.dto';
 import { actorCanManageTournaments } from '../../common/staff-access';
+import { LiveEventsService } from '../realtime/services/live-events.service';
 
 @Injectable()
 export class PickupMatchesService {
   constructor(
     @Inject(TYPEORM_DATA_SOURCE) private readonly dataSource: DataSource | null,
     private readonly config: ConfigService,
+    private readonly live: LiveEventsService,
   ) {}
 
   private get db(): DataSource {
@@ -77,6 +79,7 @@ export class PickupMatchesService {
       }),
     );
 
+    await this.ping(match.id, 'pickup.created');
     return this.getById(match.id, userId);
   }
 
@@ -177,6 +180,7 @@ export class PickupMatchesService {
       await this.matches.save(match);
     }
 
+    await this.ping(id, 'pickup.member');
     return this.getById(id, userId);
   }
 
@@ -213,6 +217,7 @@ export class PickupMatchesService {
       await this.matches.save(match);
     }
 
+    await this.ping(id, 'pickup.member');
     return this.getById(id, userId);
   }
 
@@ -263,6 +268,7 @@ export class PickupMatchesService {
       match.status = PickupMatchStatus.FULL;
       await this.matches.save(match);
     }
+    await this.ping(id, 'pickup.member');
     return this.getById(id, actorId);
   }
 
@@ -286,6 +292,7 @@ export class PickupMatchesService {
       match.status = PickupMatchStatus.OPEN;
       await this.matches.save(match);
     }
+    await this.ping(id, 'pickup.member');
     return this.getById(id, actorId);
   }
 
@@ -325,6 +332,7 @@ export class PickupMatchesService {
       member.side = dto.side ?? null;
       await this.members.save(member);
     }
+    await this.ping(id, 'pickup.member');
     return this.getById(id, actorId);
   }
 
@@ -369,6 +377,7 @@ export class PickupMatchesService {
     match.status = PickupMatchStatus.FINISHED;
     await this.matches.save(match);
 
+    await this.ping(id, 'pickup.score');
     return this.getById(id, userId);
   }
 
@@ -390,13 +399,23 @@ export class PickupMatchesService {
     match.awayScore = null;
     await this.matches.save(match);
 
+    await this.ping(id, 'pickup.cancelled');
     return this.getById(id, userId);
   }
 
   async remove(id: string, userId: string) {
     const match = await this.requireHost(id, userId);
+    await this.ping(id, 'pickup.deleted', { actorId: userId });
     await this.matches.remove(match);
     return { success: true, message: 'Match supprimé', id };
+  }
+
+  private ping(
+    matchId: string,
+    reason: string,
+    extra: Record<string, unknown> = {},
+  ) {
+    void this.live.pickupChanged(matchId, reason, extra);
   }
 
   private sideNullableReady = false;

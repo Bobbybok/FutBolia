@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/realtime/live_bindings.dart';
+import '../../../core/realtime/socket_service.dart';
 import '../../../core/i18n/fr_labels.dart';
 import '../../../design_system/components/fb_badge.dart';
 import '../../../design_system/components/fb_button.dart';
@@ -32,25 +34,37 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
   String? _error;
   final _homeScore = TextEditingController();
   final _awayScore = TextEditingController();
+  final _live = LiveBindings();
 
   @override
   void initState() {
     super.initState();
     _load();
+    _live.listenPickup(widget.matchId, (event) {
+      if (!mounted) return;
+      if (event['reason'] == 'pickup.deleted') {
+        Navigator.of(context).pop(true);
+        return;
+      }
+      _load(silent: true);
+    });
   }
 
   @override
   void dispose() {
+    _live.dispose();
     _homeScore.dispose();
     _awayScore.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final match =
           await context.read<AuthSession>().api.getPickupMatch(widget.matchId);
@@ -66,9 +80,13 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
       });
     } on ApiException catch (e) {
       if (!mounted) return;
+      if (silent) {
+        Navigator.of(context).pop(true);
+        return;
+      }
       setState(() => _error = e.message);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 
@@ -76,6 +94,7 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
     setState(() => _joining = true);
     try {
       await context.read<AuthSession>().api.joinPickupMatch(widget.matchId);
+      SocketService.instance.joinPickup(widget.matchId);
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

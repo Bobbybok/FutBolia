@@ -14,7 +14,7 @@
 - **Vider le chat** (pour soi) : Messages et chat du tournoi, y compris pour l’organisateur
 - **Vider pour tout le monde** : **organisateur uniquement**, uniquement depuis la **fiche tournoi** (pas depuis Messages)
 - Corps max **1000** caractères
-- Temps réel V1 : **polling** côté app (~4 s). Socket.io / push → phases suivantes
+- Temps réel : **Socket.io** (messages + état des tournois / équipes / matchs / pickup)
 
 ## API
 

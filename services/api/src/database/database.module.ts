@@ -13,6 +13,8 @@ import { ProfileHiddenItem } from '../modules/users/entities/profile-hidden-item
 import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 import { AuthToken } from '../modules/auth/entities/auth-token.entity';
 import { Tournament } from '../modules/tournaments/entities/tournament.entity';
+import { TournamentCover } from '../modules/tournaments/entities/tournament-cover.entity';
+import { TournamentPhoto } from '../modules/tournaments/entities/tournament-photo.entity';
 import { TournamentMember } from '../modules/tournaments/entities/tournament-member.entity';
 import { Team } from '../modules/teams/entities/team.entity';
 import { TeamMember } from '../modules/teams/entities/team-member.entity';
@@ -71,6 +73,8 @@ export const TYPEORM_DATA_SOURCE = 'TYPEORM_DATA_SOURCE';
             RefreshToken,
             AuthToken,
             Tournament,
+            TournamentCover,
+            TournamentPhoto,
             TournamentMember,
             Team,
             TeamMember,

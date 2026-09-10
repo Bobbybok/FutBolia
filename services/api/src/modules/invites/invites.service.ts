@@ -25,6 +25,7 @@ import { Profile } from '../users/entities/profile.entity';
 import { EventInvite } from './entities/event-invite.entity';
 import { CreateEventInvitesDto } from './dto/create-event-invites.dto';
 import { RealtimeDispatchService } from '../realtime/services/realtime-dispatch.service';
+import { LiveEventsService } from '../realtime/services/live-events.service';
 import { RealtimeEvents } from '../realtime/realtime-events';
 import { actorCanManageTournaments } from '../../common/staff-access';
 
@@ -35,6 +36,7 @@ export class InvitesService {
     private readonly tournaments: TournamentsService,
     private readonly pickupMatches: PickupMatchesService,
     private readonly realtime: RealtimeDispatchService,
+    private readonly live: LiveEventsService,
   ) {}
 
   private get db(): DataSource {
@@ -184,6 +186,11 @@ export class InvitesService {
     invite.status = EventInviteStatus.ACCEPTED;
     invite.respondedAt = new Date();
     await this.invites.save(invite);
+    if (invite.targetType === EventInviteTargetType.TOURNAMENT) {
+      void this.live.tournamentChanged(invite.targetId, 'tournament.member');
+    } else {
+      void this.live.pickupChanged(invite.targetId, 'pickup.member');
+    }
     return this.toPublic(invite);
   }
 

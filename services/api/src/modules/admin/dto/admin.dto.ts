@@ -213,6 +213,10 @@ export class PatchTournamentDto {
   @IsOptional()
   @IsEnum(TournamentStatus)
   status?: TournamentStatus;
+
+  @IsOptional()
+  @IsBoolean()
+  clearCover?: boolean;
 }
 
 export class PatchAdminMatchDto {

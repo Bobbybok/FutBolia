@@ -18,6 +18,7 @@ class SocketService {
   final _joinedTournaments = <String>{};
   final _joinedTeams = <String>{};
   final _joinedInterTeams = <String>{};
+  final _joinedPickups = <String>{};
   final _state = ValueNotifier<SocketConnectionState>(
     SocketConnectionState.disconnected,
   );
@@ -42,6 +43,9 @@ class SocketService {
   final _friendRequest = StreamController<Map<String, dynamic>>.broadcast();
   final _friendAccepted = StreamController<Map<String, dynamic>>.broadcast();
   final _eventInvite = StreamController<Map<String, dynamic>>.broadcast();
+  final _tournamentUpdated = StreamController<Map<String, dynamic>>.broadcast();
+  final _pickupUpdated = StreamController<Map<String, dynamic>>.broadcast();
+  final _lobbyChanged = StreamController<Map<String, dynamic>>.broadcast();
 
   final _inboxPing = StreamController<void>.broadcast();
 
@@ -76,6 +80,10 @@ class SocketService {
   Stream<Map<String, dynamic>> get onFriendRequest => _friendRequest.stream;
   Stream<Map<String, dynamic>> get onFriendAccepted => _friendAccepted.stream;
   Stream<Map<String, dynamic>> get onEventInvite => _eventInvite.stream;
+  Stream<Map<String, dynamic>> get onTournamentUpdated =>
+      _tournamentUpdated.stream;
+  Stream<Map<String, dynamic>> get onPickupUpdated => _pickupUpdated.stream;
+  Stream<Map<String, dynamic>> get onLobbyChanged => _lobbyChanged.stream;
   Stream<void> get onInboxPing => _inboxPing.stream;
 
   void connect(String? token) {
@@ -119,6 +127,7 @@ class SocketService {
       _rejoinTournaments();
       _rejoinTeams();
       _rejoinInterTeams();
+      _rejoinPickups();
     });
     socket.onDisconnect((_) {
       if (!identical(_socket, socket)) return;
@@ -146,6 +155,7 @@ class SocketService {
       _rejoinTournaments();
       _rejoinTeams();
       _rejoinInterTeams();
+      _rejoinPickups();
     });
 
     socket.on('tournament:message', (data) {
@@ -231,6 +241,18 @@ class SocketService {
         _eventInvite.add(map);
         _inboxPing.add(null);
       }
+    });
+    socket.on('tournament:updated', (data) {
+      final map = _asMap(data);
+      if (map != null) _tournamentUpdated.add(map);
+    });
+    socket.on('pickup:updated', (data) {
+      final map = _asMap(data);
+      if (map != null) _pickupUpdated.add(map);
+    });
+    socket.on('lobby:changed', (data) {
+      final map = _asMap(data);
+      if (map != null) _lobbyChanged.add(map);
     });
 
     socket.connect();
@@ -320,6 +342,16 @@ class SocketService {
     _socket?.emit('leaveInterTeam', {'tournamentId': tournamentId});
   }
 
+  void joinPickup(String matchId) {
+    _joinedPickups.add(matchId);
+    _socket?.emit('joinPickup', {'matchId': matchId});
+  }
+
+  void leavePickup(String matchId) {
+    _joinedPickups.remove(matchId);
+    _socket?.emit('leavePickup', {'matchId': matchId});
+  }
+
   void _rejoinTournaments() {
     final socket = _socket;
     if (socket == null || !socket.connected) return;
@@ -344,11 +376,20 @@ class SocketService {
     }
   }
 
+  void _rejoinPickups() {
+    final socket = _socket;
+    if (socket == null || !socket.connected) return;
+    for (final id in _joinedPickups) {
+      socket.emit('joinPickup', {'matchId': id});
+    }
+  }
+
   void disconnect() {
     _token = null;
     _joinedTournaments.clear();
     _joinedTeams.clear();
     _joinedInterTeams.clear();
+    _joinedPickups.clear();
     final socket = _socket;
     _socket = null;
     _state.value = SocketConnectionState.disconnected;

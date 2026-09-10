@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/realtime/live_bindings.dart';
 import '../../../design_system/components/fb_badge.dart';
 import '../../../design_system/components/fb_button.dart';
 import '../../../design_system/tokens/colors.dart';
@@ -40,15 +41,20 @@ class _TeamsSectionState extends State<TeamsSection> {
   String? _error;
   final _teamName = TextEditingController();
   String? _pendingSelectorId;
+  final _live = LiveBindings();
 
   @override
   void initState() {
     super.initState();
     _load();
+    _live.listenTournament(widget.tournamentId, (_) {
+      if (mounted) _load(silent: true);
+    });
   }
 
   @override
   void dispose() {
+    _live.dispose();
     _teamName.dispose();
     super.dispose();
   }
@@ -63,11 +69,13 @@ class _TeamsSectionState extends State<TeamsSection> {
     return null;
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final teams =
           await context.read<AuthSession>().api.listTeams(widget.tournamentId);
@@ -77,7 +85,7 @@ class _TeamsSectionState extends State<TeamsSection> {
       if (!mounted) return;
       setState(() => _error = e.message);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 
@@ -366,6 +374,8 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
   Map<String, dynamic>? _team;
   bool _loading = true;
   String? _error;
+  final _live = LiveBindings();
+  String? _liveTournamentId;
 
   @override
   void initState() {
@@ -373,20 +383,45 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _live.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final team = await context.read<AuthSession>().api.getTeam(widget.teamId);
       if (!mounted) return;
       setState(() => _team = team);
+      final tournamentId = team['tournamentId']?.toString();
+      if (tournamentId != null && tournamentId != _liveTournamentId) {
+        _liveTournamentId = tournamentId;
+        _live.listenTournament(tournamentId, (event) {
+          if (!mounted) return;
+          if (event['reason'] == 'team.deleted' &&
+              event['teamId']?.toString() == widget.teamId) {
+            Navigator.of(context).pop();
+            return;
+          }
+          _load(silent: true);
+        });
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
+      if (silent) {
+        Navigator.of(context).pop();
+        return;
+      }
       setState(() => _error = e.message);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 

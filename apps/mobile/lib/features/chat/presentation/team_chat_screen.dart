@@ -71,7 +71,6 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
 
   @override
   void dispose() {
-    SocketService.instance.leaveTeam(widget.teamId);
     for (final sub in _subs) {
       sub.cancel();
     }

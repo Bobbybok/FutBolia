@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/i18n/fr_labels.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/realtime/live_bindings.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
 import '../../auth/domain/staff_label.dart';
@@ -36,6 +37,7 @@ class TournamentRosterSection extends StatefulWidget {
 class _TournamentRosterSectionState extends State<TournamentRosterSection> {
   List<Map<String, dynamic>> _teams = [];
   bool _loading = true;
+  final _live = LiveBindings();
 
   ApiClient get _api => context.read<AuthSession>().api;
   String? get _me => context.read<AuthSession>().user?.id;
@@ -44,6 +46,15 @@ class _TournamentRosterSectionState extends State<TournamentRosterSection> {
   void initState() {
     super.initState();
     _loadTeams();
+    _live.listenTournament(widget.tournamentId, (_) {
+      if (mounted) _reload();
+    });
+  }
+
+  @override
+  void dispose() {
+    _live.dispose();
+    super.dispose();
   }
 
   @override

@@ -6,7 +6,7 @@
 - **API** : NestJS + validation DTO + guards
 - **DB** : PostgreSQL (transactions ACID pour le mercato)
 - **ORM** : TypeORM à partir de la Phase 2 (entities / migrations)
-- **Temps réel** : Socket.io (plus tard, scoped)
+- **Temps réel** : Socket.io (chat, invitations, **et** sync live des tournois / équipes / matchs / pickup)
 - **Push** : FCM
 - **Stockage** : Cloudflare R2
 

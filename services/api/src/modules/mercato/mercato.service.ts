@@ -26,11 +26,13 @@ import { TeamMember } from '../teams/entities/team-member.entity';
 import { RecruitmentOffer } from './entities/recruitment-offer.entity';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { actorCanManageTournaments } from '../../common/staff-access';
+import { LiveEventsService } from '../realtime/services/live-events.service';
 
 @Injectable()
 export class MercatoService {
   constructor(
     @Inject(TYPEORM_DATA_SOURCE) private readonly dataSource: DataSource | null,
+    private readonly live: LiveEventsService,
   ) {}
 
   private get db(): DataSource {
@@ -219,6 +221,7 @@ export class MercatoService {
       }),
     );
 
+    void this.live.tournamentChanged(team.tournamentId, 'mercato.offer');
     return {
       id: offer.id,
       tournamentId: offer.tournamentId,
@@ -231,7 +234,7 @@ export class MercatoService {
   }
 
   async acceptOffer(offerId: string, playerId: string) {
-    return this.db.transaction(async (manager) => {
+    const result = await this.db.transaction(async (manager) => {
       const offerRepo = manager.getRepository(RecruitmentOffer);
       const teamRepo = manager.getRepository(Team);
       const teamMemberRepo = manager.getRepository(TeamMember);
@@ -336,6 +339,11 @@ export class MercatoService {
         message: 'Recrutement accepté',
       };
     });
+    const offer = await this.offers.findOne({ where: { id: offerId } });
+    if (offer) {
+      void this.live.tournamentChanged(offer.tournamentId, 'mercato.accepted');
+    }
+    return result;
   }
 
   async rejectOffer(offerId: string, playerId: string) {
@@ -350,6 +358,7 @@ export class MercatoService {
     offer.status = RecruitmentOfferStatus.REJECTED;
     offer.resolvedAt = new Date();
     await this.offers.save(offer);
+    void this.live.tournamentChanged(offer.tournamentId, 'mercato.rejected');
     return { success: true, message: 'Offre refusée' };
   }
 
@@ -367,6 +376,7 @@ export class MercatoService {
       await this.tournamentMembers.save(membership);
     }
 
+    void this.live.tournamentChanged(tournamentId, 'mercato.selector');
     return {
       success: true,
       userId,
@@ -394,6 +404,7 @@ export class MercatoService {
 
     team.selectorId = selectorId;
     await this.teams.save(team);
+    void this.live.tournamentChanged(team.tournamentId, 'mercato.selector');
     return {
       id: team.id,
       selectorId: team.selectorId,

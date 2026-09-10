@@ -29,6 +29,7 @@ import { UpdateTeamMemberDto } from './dto/update-team-member.dto';
 import { AssignTeamDto } from './dto/assign-team.dto';
 import { actorCanManageTournaments } from '../../common/staff-access';
 import { RealtimeDispatchService } from '../realtime/services/realtime-dispatch.service';
+import { LiveEventsService } from '../realtime/services/live-events.service';
 import { RealtimeEvents } from '../realtime/realtime-events';
 
 type RosterActor = {
@@ -45,6 +46,7 @@ export class TeamsService {
   constructor(
     @Inject(TYPEORM_DATA_SOURCE) private readonly dataSource: DataSource | null,
     private readonly realtime: RealtimeDispatchService,
+    private readonly live: LiveEventsService,
   ) {}
 
   private get db(): DataSource {
@@ -156,6 +158,7 @@ export class TeamsService {
       await this.refreshTeamStatus(team.id);
     }
 
+    await this.ping(team.tournamentId, 'team.created', { teamId: team.id });
     return this.getById(team.id, actorId);
   }
 
@@ -201,6 +204,7 @@ export class TeamsService {
     }
 
     await this.teams.save(team);
+    await this.ping(team.tournamentId, 'team.updated', { teamId: team.id });
     return this.getById(teamId, actorId);
   }
 
@@ -215,6 +219,10 @@ export class TeamsService {
 
     await this.teamMembers.delete({ teamId });
     await this.teams.remove(team);
+    await this.ping(team.tournamentId, 'team.deleted', {
+      teamId,
+      actorId,
+    });
     return { success: true, message: 'Équipe supprimée', id: teamId };
   }
 
@@ -253,6 +261,7 @@ export class TeamsService {
     await this.teamMembers.save(member);
 
     await this.refreshTeamStatus(teamId);
+    await this.ping(ctx.team.tournamentId, 'team.member', { teamId });
     return this.getById(teamId, actorId);
   }
 
@@ -290,6 +299,7 @@ export class TeamsService {
 
     await this.teamMembers.delete({ id: member.id });
     await this.refreshTeamStatus(teamId);
+    await this.ping(team.tournamentId, 'team.member', { teamId });
     return this.getById(teamId, actorId);
   }
 
@@ -326,6 +336,7 @@ export class TeamsService {
     await this.teams.save(ctx.team);
     await this.refreshTeamStatus(teamId);
     await this.notifyCaptain(ctx.team, newCaptainId, actorId);
+    await this.ping(ctx.team.tournamentId, 'team.captain', { teamId });
     return this.getById(teamId, actorId);
   }
 
@@ -365,6 +376,7 @@ export class TeamsService {
     }
 
     await this.refreshTeamStatus(teamId);
+    await this.ping(ctx.team.tournamentId, 'team.member', { teamId });
     return this.getById(teamId, actorId);
   }
 
@@ -395,6 +407,7 @@ export class TeamsService {
       await this.promoteCaptain(team);
     }
     await this.refreshTeamStatus(team.id);
+    await this.ping(tournamentId, 'team.member', { teamId: team.id });
   }
 
   async validateTeam(teamId: string, actorId: string) {
@@ -416,6 +429,7 @@ export class TeamsService {
 
     refreshed.status = TeamStatus.VALIDATED;
     await this.teams.save(refreshed);
+    await this.ping(team.tournamentId, 'team.validated', { teamId });
     return this.getById(teamId, actorId);
   }
 
@@ -433,6 +447,7 @@ export class TeamsService {
       await this.teams.save(team);
     }
     await this.refreshTeamStatus(teamId);
+    await this.ping(team.tournamentId, 'team.updated', { teamId });
     return this.getById(teamId, actorId);
   }
 
@@ -491,6 +506,7 @@ export class TeamsService {
     await this.teamMembers.save(member);
     await this.refreshTeamStatus(teamId);
     await this.notifyAssigned(ctx.team, userId, actorId);
+    await this.ping(ctx.team.tournamentId, 'team.member', { teamId });
     return this.getById(teamId, actorId);
   }
 
@@ -542,6 +558,7 @@ export class TeamsService {
       await this.promoteCaptain(ctx.team);
     }
     await this.refreshTeamStatus(ctx.team.id);
+    await this.ping(ctx.team.tournamentId, 'team.member', { teamId: ctx.team.id });
     return this.getById(ctx.team.id, actorId);
   }
 
@@ -581,6 +598,14 @@ export class TeamsService {
     if (team.captainId) {
       await this.notifyCaptain(team, team.captainId, null);
     }
+  }
+
+  private ping(
+    tournamentId: string,
+    reason: string,
+    extra: Record<string, unknown> = {},
+  ) {
+    void this.live.tournamentChanged(tournamentId, reason, extra);
   }
 
   private async notifyAssigned(team: Team, userId: string, actorId: string) {

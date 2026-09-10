@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/realtime/live_bindings.dart';
+import '../../../core/realtime/socket_service.dart';
 import '../../../design_system/components/fb_badge.dart';
 import '../../../design_system/components/fb_button.dart';
 import '../../../design_system/tokens/colors.dart';
@@ -14,6 +16,7 @@ import '../../matches/presentation/matches_screen.dart';
 import '../../chat/presentation/tournament_chat_screen.dart';
 import '../../admin/admin_permissions.dart';
 import 'edit_tournament_screen.dart';
+import 'tournament_photos.dart';
 
 class TournamentDetailScreen extends StatefulWidget {
   const TournamentDetailScreen({super.key, required this.tournamentId});
@@ -30,18 +33,35 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
   bool _loading = true;
   bool _joining = false;
   String? _error;
+  final _live = LiveBindings();
 
   @override
   void initState() {
     super.initState();
     _load();
+    _live.listenTournament(widget.tournamentId, (event) {
+      if (!mounted) return;
+      if (event['reason'] == 'tournament.deleted') {
+        Navigator.of(context).pop(true);
+        return;
+      }
+      _load(silent: true);
+    });
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _live.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final api = context.read<AuthSession>().api;
       final tournament = await api.getTournament(widget.tournamentId);
@@ -58,9 +78,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
       });
     } on ApiException catch (e) {
       if (!mounted) return;
+      if (silent) {
+        Navigator.of(context).pop(true);
+        return;
+      }
       setState(() => _error = e.message);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 
@@ -68,6 +92,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
     setState(() => _joining = true);
     try {
       await context.read<AuthSession>().api.joinTournament(widget.tournamentId);
+      SocketService.instance.joinTournament(widget.tournamentId);
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -145,12 +170,23 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
     final canCreateTeam = t['canCreateTeam'] == true ||
         canManage ||
         (isMember && t['mode']?.toString() != 'selection');
+    final canManageAlbum = t['canManageAlbum'] == true || canManage;
+    final canEditCover = isOrganizer ||
+        t['canManage'] == true ||
+        (user?.hasPermission(AdminPermissions.manageTournaments) ?? false);
 
     return Scaffold(
       appBar: AppBar(title: Text(t['name']?.toString() ?? 'Tournoi')),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
+          TournamentCoverBanner(
+            tournamentId: widget.tournamentId,
+            imageUrl: t['imageUrl']?.toString(),
+            canEdit: canEditCover,
+            onChanged: () => _load(silent: true),
+          ),
+          const SizedBox(height: 16),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -183,6 +219,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
           Text('Équipes max : ${t['maxTeams']}'),
           Text('Titulaires / remplaçants : ${t['startersCount']} / ${t['startersCount']}'),
           Text('Participants : ${t['membersCount'] ?? _members.length}'),
+          const SizedBox(height: 24),
+          TournamentAlbumSection(
+            tournamentId: widget.tournamentId,
+            canManage: canManageAlbum,
+          ),
           const SizedBox(height: 24),
           if (!isMember) ...[
             if (isPrivate)
@@ -309,7 +350,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
               members: _members,
               canManage: canManage,
               createdById: t['createdById']?.toString(),
-              onChanged: _load,
+              onChanged: () => _load(silent: true),
             ),
           ],
           if (isMember && t['createdById']?.toString() != user?.id) ...[

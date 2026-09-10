@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/realtime/live_bindings.dart';
 import '../../../design_system/components/fb_atmosphere.dart';
 import '../../../design_system/components/fb_badge.dart';
 import '../../../design_system/components/fb_brand.dart';
@@ -9,6 +10,7 @@ import '../../../core/i18n/fr_labels.dart';
 import '../../auth/application/auth_session.dart';
 import 'create_tournament_screen.dart';
 import 'tournament_detail_screen.dart';
+import 'tournament_photos.dart';
 
 class TournamentsScreen extends StatefulWidget {
   const TournamentsScreen({super.key});
@@ -25,26 +27,33 @@ class _TournamentsScreenState extends State<TournamentsScreen>
   List<Map<String, dynamic>> _mine = [];
   bool _loading = true;
   String? _error;
+  final _live = LiveBindings();
 
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
     _load();
+    _live.listenLobby('tournament', () {
+      if (mounted) _load(silent: true);
+    });
   }
 
   @override
   void dispose() {
+    _live.dispose();
     _tabs.dispose();
     _search.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final api = context.read<AuthSession>().api;
       final discover = await api.listTournaments(query: _search.text.trim());
@@ -58,7 +67,7 @@ class _TournamentsScreenState extends State<TournamentsScreen>
       if (!mounted) return;
       setState(() => _error = e.message);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 
@@ -247,6 +256,10 @@ class _TournamentList extends StatelessWidget {
                   children: [
                     Row(
                       children: [
+                        TournamentListThumb(
+                          imageUrl: t['imageUrl']?.toString(),
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             t['name']?.toString() ?? '',
