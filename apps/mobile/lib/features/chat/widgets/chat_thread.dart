@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/moderation/word_filter.dart';
+import '../../../core/settings/app_settings.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../auth/domain/staff_label.dart';
 
@@ -78,6 +81,7 @@ class ChatThread extends StatelessWidget {
         ),
       );
     }
+    final filterOn = context.watch<AppSettings>().wordFilterEnabled;
     return ListView.builder(
       controller: scroll,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -154,7 +158,10 @@ class ChatThread extends StatelessWidget {
                       ),
                     if (!mine) const SizedBox(height: 4),
                     Text(
-                      m['body']?.toString() ?? '',
+                      applyWordFilter(
+                        m['body']?.toString() ?? '',
+                        enabled: filterOn,
+                      ),
                       style: TextStyle(
                         color: mine
                             ? Colors.white

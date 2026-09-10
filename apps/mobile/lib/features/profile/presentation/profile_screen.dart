@@ -554,7 +554,7 @@ class _ProfileEditTabState extends State<_ProfileEditTab>
         ),
         const SizedBox(height: 6),
         const Text(
-          'Masquer le cache du profil public. Supprimer le retire de ton profil ; orga et admin peuvent aussi supprimer l’événement.',
+          'Masquer le cache du profil public. Retirer l’enlève de ton profil seulement : le tournoi ou le match reste pour les autres.',
           style: TextStyle(color: Colors.white54, fontSize: 12),
         ),
         const SizedBox(height: 8),
@@ -691,8 +691,7 @@ class _CareerEditTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final hidden = item['hidden'] == true;
     final canAct = !item.containsKey('canRemoveFromProfile') ||
-        careerCanRemoveFromProfile(item) ||
-        careerCanDeleteEvent(item);
+        careerCanRemoveFromProfile(item);
     return Opacity(
       opacity: hidden ? 0.55 : 1,
       child: Container(
@@ -728,7 +727,7 @@ class _CareerEditTile extends StatelessWidget {
             ),
             if (canAct)
               IconButton(
-                tooltip: 'Supprimer',
+                tooltip: 'Retirer du profil',
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline, color: FutBoliaColors.danger),
               ),

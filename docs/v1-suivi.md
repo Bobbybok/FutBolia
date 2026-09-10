@@ -83,7 +83,7 @@ Lancement : `scripts\launch-phone.ps1` · `-Local` · `scripts\launch-pc.ps1` ·
 - [x] **A6** Organisateur / admin : **supprimer** et **modifier** le tournoi
   <details><summary>Résumé</summary>
 
-  Écran « Modifier le tournoi » (nom, lieu, date, mode, visibilité, statut). L’orga et un admin avec `manage_tournaments` peuvent modifier ou supprimer, **aussi depuis la carrière du profil**.
+  Écran « Modifier le tournoi » (nom, lieu, date, mode, visibilité, statut). L’orga et un admin avec `manage_tournaments` peuvent modifier ou supprimer depuis la **fiche tournoi** (pas depuis la carrière du profil).
 
   </details>
 - [x] **A7** Modes Classique et Sélection
@@ -155,13 +155,19 @@ Lancement : `scripts\launch-phone.ps1` · `-Local` · `scripts\launch-pc.ps1` ·
 - [x] **A15** Admin / Modo
   <details><summary>Résumé</summary>
 
-  Onglet staff. L’admin (droit `manage_users` / `manage_tournaments`) peut **modifier et supprimer** profils, tournois, matchs, équipes, matchs libres. Même actions depuis le détail d’un tournoi / match / **profil public** (carrière : retirer du profil ou supprimer l’événement). L’API refuse sans le droit.
+  Onglet staff. L’admin (droit `manage_users` / `manage_tournaments`) peut **modifier et supprimer** profils, tournois, matchs, équipes, matchs libres depuis le détail / l’onglet Admin. La **carrière** d’un profil ne fait que masquer ou **retirer du profil** (l’événement n’est pas détruit). L’API refuse sans le droit.
 
   </details>
 - [x] **A16** Signalements
   <details><summary>Résumé</summary>
 
   Signaler joueur / message. File modo : traiter, fermer, rouvrir. Messages supprimés listés.
+
+  </details>
+- [x] **B4** Modération avancée
+  <details><summary>Résumé</summary>
+
+  Signalements A16 inchangés. Ban **admin / modo** inchangé — **pas de ban automatique**. **Filtre de mots** dans Réglages (on/off, défaut ON) : masque les insultes dans les chats et les bios à l’affichage ; le staff voit le texte original. Modération forum = B3.
 
   </details>
 - [x] **A18** Thème sombre
@@ -179,7 +185,7 @@ Lancement : `scripts\launch-phone.ps1` · `-Local` · `scripts\launch-pc.ps1` ·
 - [x] **A20** Profil joueur : postes FIFA, expérience, photo, carrière, profil public
   <details><summary>Résumé</summary>
 
-  Formulaire Profil : jusqu’à **5 postes** (GB, DG/DC/DD, MG/MC/MD/MCD, AG/BU/AD) dans l’ordre de préférence, pied fort, taille/poids, palier loisir → pro + année, dispos, photo. Mini-bilan (tournois / matchs / orga / cap.). Carrière : masquer, **retirer du profil**, ou **supprimer l’événement** (orga / admin `manage_tournaments`). **Tout compte connecté** peut ouvrir un profil (photo, postes, mini-bilan, carrière non masquée). Photo stockée en base (pas R2). Indicatif : ne pilote pas le mercato.
+  Formulaire Profil : jusqu’à **5 postes** (GB, DG/DC/DD, MG/MC/MD/MCD, AG/BU/AD) dans l’ordre de préférence, pied fort, taille/poids, palier loisir → pro + année, dispos, photo. Mini-bilan (tournois / matchs / orga / cap.). Carrière : masquer ou **retirer du profil** (le tournoi / match n’est pas supprimé). **Tout compte connecté** peut ouvrir un profil (photo, postes, mini-bilan, carrière non masquée). Photo stockée en base (pas R2). Indicatif : ne pilote pas le mercato.
 
   </details>
 
@@ -211,12 +217,6 @@ Ne pas traiter comme OK tant que ce n’est pas branché.
   <details><summary>Résumé</summary>
 
   API sujets / réponses OK. **Aucun écran** dans l’app.
-
-  </details>
-- [ ] **B4** Modération plus poussée
-  <details><summary>Résumé</summary>
-
-  Signalements déjà en A16. Manque ban dur, filtres de mots, modération forum.
 
   </details>
 

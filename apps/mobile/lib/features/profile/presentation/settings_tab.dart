@@ -17,21 +17,41 @@ class SettingsTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
         _SettingsCard(
-          child: SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text(
-              'Notifications',
-              style: TextStyle(
-                color: FutBoliaColors.inkDark,
-                fontWeight: FontWeight.w700,
+          child: Column(
+            children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  'Notifications',
+                  style: TextStyle(
+                    color: FutBoliaColors.inkDark,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Alertes push. Tes conversations et le badge Chat restent actifs.',
+                  style: TextStyle(color: FutBoliaColors.inkMuted),
+                ),
+                value: settings.notificationsEnabled,
+                onChanged: (value) => _toggleNotifications(context, value),
               ),
-            ),
-            subtitle: const Text(
-              'Alertes push. Tes conversations et le badge Chat restent actifs.',
-              style: TextStyle(color: FutBoliaColors.inkMuted),
-            ),
-            value: settings.notificationsEnabled,
-            onChanged: (value) => _toggleNotifications(context, value),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  'Filtre de mots',
+                  style: TextStyle(
+                    color: FutBoliaColors.inkDark,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Masque les insultes dans les chats et les bios. Désactive pour tout voir. L’équipe de modération voit toujours le texte original.',
+                  style: TextStyle(color: FutBoliaColors.inkMuted),
+                ),
+                value: settings.wordFilterEnabled,
+                onChanged: settings.setWordFilterEnabled,
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 20),

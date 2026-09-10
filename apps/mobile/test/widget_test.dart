@@ -71,6 +71,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Notifications'), findsOneWidget);
+    expect(find.text('Filtre de mots'), findsOneWidget);
     expect(find.text('Chat'), findsWidgets);
   });
 

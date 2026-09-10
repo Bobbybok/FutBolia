@@ -299,9 +299,7 @@ export class CareerService {
             `${ProfileHiddenItemType.TOURNAMENT}:${tournament.id}`,
           ),
           canRemoveFromProfile: viewer.canRemove,
-          canDeleteEvent:
-            viewer.staffEvents ||
-            viewer.organizerTournamentIds.has(tournament.id),
+          canDeleteEvent: false,
         };
       })
       .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
@@ -380,9 +378,7 @@ export class CareerService {
         role,
         hidden: hiddenSet.has(`${ProfileHiddenItemType.MATCH}:${match.id}`),
         canRemoveFromProfile: viewer.canRemove,
-        canDeleteEvent:
-          viewer.staffEvents ||
-          viewer.organizerTournamentIds.has(match.tournamentId),
+        canDeleteEvent: false,
       });
     }
 
@@ -405,8 +401,7 @@ export class CareerService {
           `${ProfileHiddenItemType.PICKUP_MATCH}:${pickup.id}`,
         ),
         canRemoveFromProfile: viewer.canRemove,
-        canDeleteEvent:
-          viewer.staffEvents || pickup.createdById === viewer.viewerId,
+        canDeleteEvent: false,
       });
     }
 

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/moderation/word_filter.dart';
+import '../../../core/settings/app_settings.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../auth/domain/staff_label.dart';
 
@@ -22,8 +25,12 @@ class ConversationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final last = conversation['lastMessage'];
     final unread = (conversation['unreadCount'] as num?)?.toInt() ?? 0;
+    final filterOn = context.watch<AppSettings>().wordFilterEnabled;
     final preview = last is Map
-        ? (last['body']?.toString() ?? '')
+        ? applyWordFilter(
+            last['body']?.toString() ?? '',
+            enabled: filterOn,
+          )
         : _isTournament
             ? 'Chat privé des participants'
             : _isTeam

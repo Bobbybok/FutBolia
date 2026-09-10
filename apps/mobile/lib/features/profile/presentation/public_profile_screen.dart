@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/moderation/word_filter.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/settings/app_settings.dart';
 import '../../../design_system/components/fb_atmosphere.dart';
 import '../../../design_system/components/fb_button.dart';
 import '../../../design_system/tokens/colors.dart';
@@ -162,6 +164,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final filterOn = context.watch<AppSettings>().wordFilterEnabled;
     final profile = Map<String, dynamic>.from(_data?['profile'] as Map? ?? {});
     final stats = Map<String, dynamic>.from(_data?['stats'] as Map? ?? {});
     final tournaments = _asMaps(_data?['tournaments']);
@@ -377,7 +380,13 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                                         .join(' · '),
                                   ),
                                 if ((profile['bio']?.toString() ?? '').isNotEmpty)
-                                  _kv('Bio', profile['bio'].toString()),
+                                  _kv(
+                                    'Bio',
+                                    applyWordFilter(
+                                      profile['bio'].toString(),
+                                      enabled: filterOn,
+                                    ),
+                                  ),
                               ],
                             ),
                             const SizedBox(height: 20),
@@ -402,8 +411,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                                   onHidden: isOwner
                                       ? (hidden) => _toggleHidden(item, hidden)
                                       : null,
-                                  onDelete: careerCanRemoveFromProfile(item) ||
-                                          careerCanDeleteEvent(item)
+                                  onDelete: careerCanRemoveFromProfile(item)
                                       ? () => _deleteCareer(item)
                                       : null,
                                 ),
@@ -430,8 +438,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                                   onHidden: isOwner
                                       ? (hidden) => _toggleHidden(item, hidden)
                                       : null,
-                                  onDelete: careerCanRemoveFromProfile(item) ||
-                                          careerCanDeleteEvent(item)
+                                  onDelete: careerCanRemoveFromProfile(item)
                                       ? () => _deleteCareer(item)
                                       : null,
                                 ),
@@ -606,7 +613,7 @@ class _CareerTile extends StatelessWidget {
             ),
             if (onDelete != null)
               IconButton(
-                tooltip: 'Supprimer',
+                tooltip: 'Retirer du profil',
                 onPressed: onDelete,
                 icon: const Icon(
                   Icons.delete_outline,
