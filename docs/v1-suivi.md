@@ -20,7 +20,7 @@ Mots de passe hashés **Argon2**. JWT + refresh. Mot de passe oublié.
 
 **Codé mais pas allumé** : push FCM (inactif sur le navigateur PC), vérif e-mail (désactivée, pas de domaine Resend), forum (API sans écran), **chat inter-équipes**.
 
-**Pas fait** : carte du tournoi, écran forum, activer l’e-mail. **Partiel** : trophées joueur (mini-bilan oui).
+**Pas fait** : carte + itinéraire du tournoi, écran forum, activer l’e-mail, découverte (joueurs / pickup / tournois), mur d’actu, vote orga. **Partiel** : trophées joueur (mini-bilan oui).
 
 ---
 
@@ -224,10 +224,10 @@ Ne pas traiter comme OK tant que ce n’est pas branché.
 
 ## C. À faire
 
-- [ ] **C2** Carte du tournoi
+- [ ] **C2** Carte + itinéraire vers le gymnase / terrain
   <details><summary>Résumé</summary>
 
-  Pas encore codé. Zone du tournoi sur une carte, pas seulement un texte ville.
+  Pas encore codé. Zone du tournoi (et des matchs pickup) sur une carte, pas seulement un texte ville. Depuis la fiche : ouvrir l’itinéraire (Maps) vers le gymnase / terrain.
 
   </details>
 - [x] **C3** Photos de **tournoi** + album
@@ -252,6 +252,24 @@ Ne pas traiter comme OK tant que ce n’est pas branché.
   <details><summary>Résumé</summary>
 
   Branché dans Profil. 5 postes FIFA + GB, palier d’expérience, photo, carrière, profil public.
+
+  </details>
+- [ ] **C7** Découverte
+  <details><summary>Résumé</summary>
+
+  Trouver des joueurs (poste, ville, dispos), un pickup près de soi (lié à C2), et des tournois recommandés selon le profil. Pas encore codé.
+
+  </details>
+- [ ] **C8** Mur d’actu
+  <details><summary>Résumé</summary>
+
+  Fil d’activité : « ton ami a rejoint un tournoi », « match dans 1 h », et d’autres events sociaux / match-day. Pas encore codé. Les rappels « dans 1 h » iront plus loin avec les push (A17).
+
+  </details>
+- [ ] **C9** Vote par étoiles pour l’organisateur
+  <details><summary>Résumé</summary>
+
+  Après un tournoi, les participants notent l’orga (1–5 étoiles). Note moyenne visible sur le profil / la fiche tournoi. Un joueur ne vote qu’une fois par tournoi. Pas encore codé.
 
   </details>
 
