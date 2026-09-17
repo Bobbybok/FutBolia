@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../../../core/notifications/push_notification_service.dart';
 import '../../../core/settings/app_settings.dart';
+import '../../../core/updates/github_update_service.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
 
@@ -54,6 +58,8 @@ class SettingsTab extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: 12),
+        const _UpdateSettingsCard(),
         const SizedBox(height: 20),
         OutlinedButton.icon(
           onPressed: session.logout,
@@ -83,6 +89,166 @@ class SettingsTab extends StatelessWidget {
     } else {
       await PushNotificationService.instance.stop(api);
     }
+  }
+}
+
+class _UpdateSettingsCard extends StatefulWidget {
+  const _UpdateSettingsCard();
+
+  @override
+  State<_UpdateSettingsCard> createState() => _UpdateSettingsCardState();
+}
+
+class _UpdateSettingsCardState extends State<_UpdateSettingsCard> {
+  final _updates = GithubUpdateService.instance;
+  StreamSubscription<GithubUpdateProgress>? _progressSub;
+  String _version = '';
+  String _text = 'Vérifie les releases GitHub.';
+  bool _busy = false;
+  bool _applying = false;
+  bool _available = false;
+  double _pct = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _progressSub = _updates.progress.listen(
+      (p) {
+        if (!mounted) return;
+        setState(() {
+          _pct = p.pct;
+          if (p.label.isNotEmpty) _text = p.label;
+        });
+      },
+      onError: (_) {},
+    );
+    _loadVersion();
+    _check();
+  }
+
+  @override
+  void dispose() {
+    _progressSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() => _version = info.version);
+    } catch (_) {}
+  }
+
+  Future<void> _check() async {
+    if (_busy || _applying) return;
+    setState(() {
+      _busy = true;
+      _text = 'Vérification GitHub…';
+    });
+    try {
+      final s = await _updates.check();
+      if (!mounted) return;
+      setState(() {
+        _available = s.available;
+        _text = s.message;
+        if (s.local.isNotEmpty) _version = s.local.replaceFirst(RegExp(r'^v'), '');
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _apply() async {
+    if (_busy || _applying) return;
+    setState(() {
+      _applying = true;
+      _busy = true;
+      _pct = 0.02;
+      _text = 'Téléchargement GitHub…';
+    });
+    try {
+      final s = await _updates.apply();
+      if (!mounted) return;
+      setState(() {
+        _available = s.available && !s.install;
+        _text = s.message;
+        if (s.ok) _pct = 1;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _applying = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final versionLabel = _version.isEmpty ? '' : 'v$_version';
+    return _SettingsCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(
+              Icons.system_update_alt_rounded,
+              color: FutBoliaColors.lime,
+            ),
+            title: const Text(
+              'Mises à jour',
+              style: TextStyle(
+                color: FutBoliaColors.inkDark,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            subtitle: Text(
+              [
+                if (versionLabel.isNotEmpty) versionLabel,
+                _text,
+              ].join(' · '),
+              style: const TextStyle(color: FutBoliaColors.inkMuted),
+            ),
+          ),
+          if (_applying || _busy) ...[
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: _applying ? _pct.clamp(0, 1) : null,
+                minHeight: 6,
+                color: FutBoliaColors.lime,
+                backgroundColor: FutBoliaColors.lineDark,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton(
+                onPressed: _busy ? null : _check,
+                child: Text(_busy && !_applying ? 'Vérification…' : 'Vérifier'),
+              ),
+              if (_available)
+                FilledButton(
+                  onPressed: _busy ? null : _apply,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: FutBoliaColors.lime,
+                    foregroundColor: FutBoliaColors.ink,
+                  ),
+                  child: const Text('Installer la mise à jour'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
   }
 }
 

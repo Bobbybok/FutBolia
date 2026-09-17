@@ -188,6 +188,12 @@ Lancement : `scripts\launch-phone.ps1` · `-Local` · `scripts\launch-pc.ps1` ·
   Formulaire Profil : jusqu’à **5 postes** (GB, DG/DC/DD, MG/MC/MD/MCD, AG/BU/AD) dans l’ordre de préférence, pied fort, taille/poids, palier loisir → pro + année, dispos, photo. Mini-bilan (tournois / matchs / orga / cap.). Carrière : masquer ou **retirer du profil** (le tournoi / match n’est pas supprimé). **Tout compte connecté** peut ouvrir un profil (photo, postes, mini-bilan, carrière non masquée). Photo stockée en base (pas R2). Indicatif : ne pilote pas le mercato.
 
   </details>
+- [x] **A22** Mises à jour GitHub dans Réglages
+  <details><summary>Résumé</summary>
+
+  Profil → Réglages : **Vérifier** / **Installer** depuis les GitHub Releases (`Bobbybok/FutBolia`), comme Gamelle. L’APK doit être joint à la release. Téléphone seulement (pas le preview PC).
+
+  </details>
 
 ---
 

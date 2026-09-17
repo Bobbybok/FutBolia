@@ -7,10 +7,20 @@ import 'package:futbolia/features/auth/domain/futbolia_user.dart';
 import 'package:futbolia/features/chat/chat_overlay_controller.dart';
 import 'package:futbolia/features/home/presentation/home_shell.dart';
 import 'package:futbolia/design_system/theme/futbolia_theme.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 
 void main() {
+  setUp(() {
+    PackageInfo.setMockInitialValues(
+      appName: 'MatchArena',
+      packageName: 'com.futbolia.futbolia',
+      version: '0.1.0',
+      buildNumber: '1',
+      buildSignature: '',
+    );
+  });
   testWidgets('Login screen shows MatchArena brand', (tester) async {
     await tester.pumpWidget(
       ChangeNotifierProvider(
@@ -72,6 +82,7 @@ void main() {
 
     expect(find.text('Notifications'), findsOneWidget);
     expect(find.text('Filtre de mots'), findsOneWidget);
+    expect(find.text('Mises à jour'), findsOneWidget);
     expect(find.text('Chat'), findsWidgets);
   });
 

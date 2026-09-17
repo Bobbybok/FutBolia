@@ -40,7 +40,7 @@ String? userIdOf(dynamic value) {
 
 void openPublicProfile(BuildContext context, String? userId) {
   if (userId == null || userId.isEmpty) return;
-  Navigator.of(context, rootNavigator: true).push(
+  Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => PublicProfileScreen(userId: userId),
     ),
