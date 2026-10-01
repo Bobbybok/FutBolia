@@ -4,10 +4,7 @@ import {
   AuthUser,
   CurrentUser,
 } from '../../common/decorators/current-user.decorator';
-import {
-  parseCoord,
-  parseNearbyRadiusKm,
-} from '../../common/geo';
+import { parseCoord } from '../../common/geo';
 import { DiscoveryService } from './discovery.service';
 
 @Controller('discovery')
@@ -19,18 +16,16 @@ export class DiscoveryController {
   nearby(
     @Query('lat') lat: string | undefined,
     @Query('lng') lng: string | undefined,
-    @Query('radiusKm') radiusKm: string | undefined,
     @CurrentUser({ optional: true }) user: AuthUser | undefined,
   ) {
     const parsedLat = parseCoord(lat);
     const parsedLng = parseCoord(lng);
     if (parsedLat == null || parsedLng == null) {
-      return { tournaments: [], pickups: [], radiusKm: parseNearbyRadiusKm(radiusKm) };
+      return { tournaments: [], pickups: [] };
     }
     return this.discovery.nearby({
       lat: parsedLat,
       lng: parsedLng,
-      radiusKm: parseNearbyRadiusKm(radiusKm),
       userId: user?.id,
     });
   }

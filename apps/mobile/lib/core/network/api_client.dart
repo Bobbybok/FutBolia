@@ -539,7 +539,6 @@ class ApiClient {
     bool mine = false,
     double? lat,
     double? lng,
-    int? radiusKm,
   }) async {
     final params = <String, String>{};
     if (query != null && query.isNotEmpty) params['q'] = query;
@@ -547,7 +546,6 @@ class ApiClient {
     if (lat != null && lng != null) {
       params['lat'] = '$lat';
       params['lng'] = '$lng';
-      params['radiusKm'] = '${radiusKm ?? 20}';
     }
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/tournaments').replace(
       queryParameters: params.isEmpty ? null : params,
@@ -614,14 +612,12 @@ class ApiClient {
     bool mine = false,
     double? lat,
     double? lng,
-    int? radiusKm,
   }) async {
     final params = <String, String>{};
     if (mine) params['mine'] = 'true';
     if (lat != null && lng != null) {
       params['lat'] = '$lat';
       params['lng'] = '$lng';
-      params['radiusKm'] = '${radiusKm ?? 20}';
     }
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/pickup-matches').replace(
       queryParameters: params.isEmpty ? null : params,
@@ -642,22 +638,38 @@ class ApiClient {
   Future<Map<String, dynamic>> discoveryNearby({
     required double lat,
     required double lng,
-    int radiusKm = 20,
   }) async {
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}/discovery/nearby').replace(
-      queryParameters: {
-        'lat': '$lat',
-        'lng': '$lng',
-        'radiusKm': '$radiusKm',
-      },
-    );
-    final response = await _client
-        .get(uri, headers: _headers(auth: true))
-        .timeout(const Duration(seconds: 10));
-    final decoded = _decodeDynamic(response);
-    if (decoded is Map<String, dynamic>) return decoded;
-    if (decoded is Map) return Map<String, dynamic>.from(decoded);
-    throw ApiException('Réponse découverte invalide');
+    // Prefer dedicated endpoint when deployed; fall back to list endpoints
+    // so "Près de moi" works even if Render has not finished redeploying.
+    try {
+      final uri = Uri.parse('${AppConfig.apiBaseUrl}/discovery/nearby').replace(
+        queryParameters: {
+          'lat': '$lat',
+          'lng': '$lng',
+        },
+      );
+      final response = await _client
+          .get(uri, headers: _headers(auth: true))
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final decoded = _decodeDynamic(response);
+        if (decoded is Map<String, dynamic>) return decoded;
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {
+      // fall through
+    }
+
+    final results = await Future.wait([
+      listTournaments(lat: lat, lng: lng),
+      listPickupMatches(lat: lat, lng: lng),
+    ]);
+    return {
+      'tournaments': results[0],
+      'pickups': results[1],
+      'lat': lat,
+      'lng': lng,
+    };
   }
 
   Future<Map<String, dynamic>> getPickupMatch(String id) {

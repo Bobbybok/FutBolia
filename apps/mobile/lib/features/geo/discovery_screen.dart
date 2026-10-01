@@ -20,7 +20,6 @@ class DiscoveryScreen extends StatefulWidget {
 class _DiscoveryScreenState extends State<DiscoveryScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _viewTabs;
-  int _radiusKm = defaultNearbyRadiusKm;
   GeoPoint? _center;
   List<Map<String, dynamic>> _tournaments = [];
   List<Map<String, dynamic>> _pickups = [];
@@ -56,7 +55,6 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
       final data = await context.read<AuthSession>().api.discoveryNearby(
             lat: _center!.latitude,
             lng: _center!.longitude,
-            radiusKm: _radiusKm,
           );
       if (!mounted) return;
       setState(() {
@@ -123,11 +121,6 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
         children: [
           const SizedBox(height: 8),
           NearbyFiltersBar(
-            radiusKm: _radiusKm,
-            onRadiusChanged: (km) {
-              setState(() => _radiusKm = km);
-              _load();
-            },
             center: _center,
             onCenterChanged: (c) {
               setState(() => _center = c);
@@ -192,12 +185,12 @@ class _ListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const Center(
-        child: Text(
-          'Rien dans ce rayon.',
-          style: TextStyle(color: Colors.white70),
-        ),
-      );
+        return const Center(
+          child: Text(
+            'Aucun événement trouvé.',
+            style: TextStyle(color: Colors.white70),
+          ),
+        );
     }
     return ListView.separated(
       padding: const EdgeInsets.all(12),

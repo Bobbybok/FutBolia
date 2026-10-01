@@ -32,7 +32,6 @@ class _TournamentsScreenState extends State<TournamentsScreen>
   bool _loading = true;
   String? _error;
   final _live = LiveBindings();
-  int _radiusKm = defaultNearbyRadiusKm;
   GeoPoint? _center;
 
   @override
@@ -68,7 +67,6 @@ class _TournamentsScreenState extends State<TournamentsScreen>
         query: _search.text.trim(),
         lat: _center?.latitude,
         lng: _center?.longitude,
-        radiusKm: _radiusKm,
       );
       final mine = await api.listTournaments(mine: true);
       if (!mounted) return;
@@ -138,11 +136,6 @@ class _TournamentsScreenState extends State<TournamentsScreen>
               ],
             ),
             NearbyFiltersBar(
-              radiusKm: _radiusKm,
-              onRadiusChanged: (km) {
-                setState(() => _radiusKm = km);
-                _load();
-              },
               center: _center,
               onCenterChanged: (c) {
                 setState(() => _center = c);
@@ -213,9 +206,8 @@ class _TournamentsScreenState extends State<TournamentsScreen>
                             }
                             return _TournamentList(
                               items: _discover,
-                              emptyLabel: _center == null
-                                  ? 'Aucun tournoi public pour le moment.'
-                                  : 'Aucun tournoi dans ce rayon.',
+                              emptyLabel:
+                                  'Aucun tournoi public pour le moment.',
                               onOpen: _open,
                               onRefresh: _load,
                             );
@@ -336,7 +328,11 @@ class _TournamentList extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '${t['location'] ?? ''} · ${_formatDate(t['startsAt'])}',
+                      [
+                        if (t['distanceKm'] != null) '${t['distanceKm']} km',
+                        t['location']?.toString() ?? '',
+                        _formatDate(t['startsAt']),
+                      ].where((e) => e.toString().isNotEmpty).join(' · '),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: FutBoliaColors.inkMuted,
                           ),

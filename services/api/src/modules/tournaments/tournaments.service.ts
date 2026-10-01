@@ -128,7 +128,6 @@ export class TournamentsService {
     userId?: string;
     lat?: number | null;
     lng?: number | null;
-    radiusKm?: number;
   }) {
     if (params.mine) {
       if (!params.userId) {
@@ -159,18 +158,9 @@ export class TournamentsService {
       });
     }
 
-    if (
-      params.lat != null &&
-      params.lng != null &&
-      params.radiusKm != null
-    ) {
+    if (params.lat != null && params.lng != null) {
       const dist = haversineSql('t.latitude', 't.longitude');
       qb.addSelect(dist, 'distance_km')
-        .andWhere(`${dist} <= :radiusKm`, {
-          lat: params.lat,
-          lng: params.lng,
-          radiusKm: params.radiusKm,
-        })
         .orderBy('distance_km', 'ASC')
         .setParameters({ lat: params.lat, lng: params.lng });
     } else {

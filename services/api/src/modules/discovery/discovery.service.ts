@@ -12,20 +12,17 @@ export class DiscoveryService {
   async nearby(params: {
     lat: number;
     lng: number;
-    radiusKm: number;
     userId?: string;
   }) {
     const [tournaments, pickups] = await Promise.all([
       this.tournaments.list({
         lat: params.lat,
         lng: params.lng,
-        radiusKm: params.radiusKm,
         userId: params.userId,
       }),
       this.pickups.list({
         lat: params.lat,
         lng: params.lng,
-        radiusKm: params.radiusKm,
         userId: params.userId,
       }),
     ]);
@@ -34,7 +31,6 @@ export class DiscoveryService {
       pickups,
       lat: params.lat,
       lng: params.lng,
-      radiusKm: params.radiusKm,
     };
   }
 }

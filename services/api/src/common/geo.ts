@@ -1,15 +1,5 @@
 /** Shared geo helpers — Haversine only, no paid maps APIs. */
 
-export const NEARBY_RADIUS_KM = [5, 10, 20, 30, 50] as const;
-export const DEFAULT_NEARBY_RADIUS_KM = 20;
-
-export function parseNearbyRadiusKm(raw: string | undefined): number {
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return DEFAULT_NEARBY_RADIUS_KM;
-  if ((NEARBY_RADIUS_KM as readonly number[]).includes(n)) return n;
-  return DEFAULT_NEARBY_RADIUS_KM;
-}
-
 export function parseCoord(raw: string | undefined): number | null {
   if (raw == null || raw === '') return null;
   const n = Number(raw);

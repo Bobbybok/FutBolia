@@ -21,10 +21,7 @@ import { JoinPickupMatchDto } from './dto/join-pickup-match.dto';
 import { ScorePickupMatchDto } from './dto/score-pickup-match.dto';
 import { AddPickupMemberDto } from './dto/add-pickup-member.dto';
 import { UpdatePickupMemberDto } from './dto/update-pickup-member.dto';
-import {
-  parseCoord,
-  parseNearbyRadiusKm,
-} from '../../common/geo';
+import { parseCoord } from '../../common/geo';
 
 @Controller('pickup-matches')
 export class PickupMatchesController {
@@ -36,20 +33,13 @@ export class PickupMatchesController {
     @Query('mine') mine: string | undefined,
     @Query('lat') lat: string | undefined,
     @Query('lng') lng: string | undefined,
-    @Query('radiusKm') radiusKm: string | undefined,
     @CurrentUser({ optional: true }) user: AuthUser | undefined,
   ) {
-    const parsedLat = parseCoord(lat);
-    const parsedLng = parseCoord(lng);
     return this.pickupMatchesService.list({
       mine: mine === 'true' || mine === '1',
       userId: user?.id,
-      lat: parsedLat,
-      lng: parsedLng,
-      radiusKm:
-        parsedLat != null && parsedLng != null
-          ? parseNearbyRadiusKm(radiusKm)
-          : undefined,
+      lat: parseCoord(lat),
+      lng: parseCoord(lng),
     });
   }
 

@@ -30,7 +30,6 @@ class _PickupMatchesScreenState extends State<PickupMatchesScreen>
   bool _loading = true;
   String? _error;
   final _live = LiveBindings();
-  int _radiusKm = defaultNearbyRadiusKm;
   GeoPoint? _center;
 
   @override
@@ -64,7 +63,6 @@ class _PickupMatchesScreenState extends State<PickupMatchesScreen>
       final discover = await api.listPickupMatches(
         lat: _center?.latitude,
         lng: _center?.longitude,
-        radiusKm: _radiusKm,
       );
       final mine = await api.listPickupMatches(mine: true);
       if (!mounted) return;
@@ -148,11 +146,6 @@ class _PickupMatchesScreenState extends State<PickupMatchesScreen>
               ],
             ),
             NearbyFiltersBar(
-              radiusKm: _radiusKm,
-              onRadiusChanged: (km) {
-                setState(() => _radiusKm = km);
-                _load();
-              },
               center: _center,
               onCenterChanged: (c) {
                 setState(() => _center = c);
@@ -196,9 +189,8 @@ class _PickupMatchesScreenState extends State<PickupMatchesScreen>
                             }
                             return _PickupMatchList(
                               items: _discover,
-                              emptyLabel: _center == null
-                                  ? 'Aucun match public ouvert pour le moment.'
-                                  : 'Aucun match dans ce rayon.',
+                              emptyLabel:
+                                  'Aucun match public ouvert pour le moment.',
                               onOpen: _open,
                               onRefresh: _load,
                             );
@@ -308,7 +300,10 @@ class _PickupMatchList extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      _formatDate(m['scheduledAt']),
+                      [
+                        if (m['distanceKm'] != null) '${m['distanceKm']} km',
+                        _formatDate(m['scheduledAt']),
+                      ].join(' · '),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: FutBoliaColors.inkMuted,
                           ),
