@@ -537,10 +537,18 @@ class ApiClient {
   Future<List<Map<String, dynamic>>> listTournaments({
     String? query,
     bool mine = false,
+    double? lat,
+    double? lng,
+    int? radiusKm,
   }) async {
     final params = <String, String>{};
     if (query != null && query.isNotEmpty) params['q'] = query;
     if (mine) params['mine'] = 'true';
+    if (lat != null && lng != null) {
+      params['lat'] = '$lat';
+      params['lng'] = '$lng';
+      params['radiusKm'] = '${radiusKm ?? 20}';
+    }
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/tournaments').replace(
       queryParameters: params.isEmpty ? null : params,
     );
@@ -602,9 +610,19 @@ class ApiClient {
     }, auth: true);
   }
 
-  Future<List<Map<String, dynamic>>> listPickupMatches({bool mine = false}) async {
+  Future<List<Map<String, dynamic>>> listPickupMatches({
+    bool mine = false,
+    double? lat,
+    double? lng,
+    int? radiusKm,
+  }) async {
     final params = <String, String>{};
     if (mine) params['mine'] = 'true';
+    if (lat != null && lng != null) {
+      params['lat'] = '$lat';
+      params['lng'] = '$lng';
+      params['radiusKm'] = '${radiusKm ?? 20}';
+    }
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/pickup-matches').replace(
       queryParameters: params.isEmpty ? null : params,
     );
@@ -619,6 +637,27 @@ class ApiClient {
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
+  }
+
+  Future<Map<String, dynamic>> discoveryNearby({
+    required double lat,
+    required double lng,
+    int radiusKm = 20,
+  }) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/discovery/nearby').replace(
+      queryParameters: {
+        'lat': '$lat',
+        'lng': '$lng',
+        'radiusKm': '$radiusKm',
+      },
+    );
+    final response = await _client
+        .get(uri, headers: _headers(auth: true))
+        .timeout(const Duration(seconds: 10));
+    final decoded = _decodeDynamic(response);
+    if (decoded is Map<String, dynamic>) return decoded;
+    if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    throw ApiException('Réponse découverte invalide');
   }
 
   Future<Map<String, dynamic>> getPickupMatch(String id) {

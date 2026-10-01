@@ -8,7 +8,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, ILike, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
 import {
   toPlatformRole,
@@ -17,6 +17,7 @@ import {
   TournamentStatus,
   TournamentVisibility,
 } from '../../common/enums';
+import { distanceKm, haversineSql } from '../../common/geo';
 import { User } from '../users/entities/user.entity';
 import { Tournament } from './entities/tournament.entity';
 import { TournamentCover } from './entities/tournament-cover.entity';
@@ -94,6 +95,8 @@ export class TournamentsService {
         description: dto.description?.trim() || null,
         startsAt: new Date(dto.startsAt),
         location: dto.location.trim(),
+        latitude: dto.latitude,
+        longitude: dto.longitude,
         maxTeams: dto.maxTeams,
         startersCount,
         substitutesCount,
@@ -123,6 +126,9 @@ export class TournamentsService {
     q?: string;
     mine?: boolean;
     userId?: string;
+    lat?: number | null;
+    lng?: number | null;
+    radiusKm?: number;
   }) {
     if (params.mine) {
       if (!params.userId) {
@@ -134,29 +140,47 @@ export class TournamentsService {
         .where('m.user_id = :userId', { userId: params.userId })
         .orderBy('t.starts_at', 'ASC')
         .getMany();
-      return Promise.all(rows.map((t) => this.toPublic(t, params.userId)));
+      return Promise.all(
+        rows.map((t) => this.toPublic(t, params.userId, false, params)),
+      );
     }
 
-    const where = params.q
-      ? [
-          {
-            visibility: TournamentVisibility.PUBLIC,
-            name: ILike(`%${params.q}%`),
-          },
-          {
-            visibility: TournamentVisibility.PUBLIC,
-            location: ILike(`%${params.q}%`),
-          },
-        ]
-      : { visibility: TournamentVisibility.PUBLIC };
+    const qb = this.tournaments
+      .createQueryBuilder('t')
+      .where('t.visibility = :visibility', {
+        visibility: TournamentVisibility.PUBLIC,
+      })
+      .andWhere('t.latitude IS NOT NULL')
+      .andWhere('t.longitude IS NOT NULL');
 
-    const rows = await this.tournaments.find({
-      where,
-      order: { startsAt: 'ASC' },
-      take: 50,
-    });
+    if (params.q?.trim()) {
+      qb.andWhere('(t.name ILIKE :q OR t.location ILIKE :q)', {
+        q: `%${params.q.trim()}%`,
+      });
+    }
 
-    return Promise.all(rows.map((t) => this.toPublic(t, params.userId)));
+    if (
+      params.lat != null &&
+      params.lng != null &&
+      params.radiusKm != null
+    ) {
+      const dist = haversineSql('t.latitude', 't.longitude');
+      qb.addSelect(dist, 'distance_km')
+        .andWhere(`${dist} <= :radiusKm`, {
+          lat: params.lat,
+          lng: params.lng,
+          radiusKm: params.radiusKm,
+        })
+        .orderBy('distance_km', 'ASC')
+        .setParameters({ lat: params.lat, lng: params.lng });
+    } else {
+      qb.orderBy('t.starts_at', 'ASC');
+    }
+
+    const rows = await qb.take(50).getMany();
+    return Promise.all(
+      rows.map((t) => this.toPublic(t, params.userId, false, params)),
+    );
   }
 
   async getById(id: string, viewerId?: string) {
@@ -190,6 +214,8 @@ export class TournamentsService {
     }
     if (dto.startsAt !== undefined) tournament.startsAt = new Date(dto.startsAt);
     if (dto.location !== undefined) tournament.location = dto.location.trim();
+    if (dto.latitude !== undefined) tournament.latitude = dto.latitude;
+    if (dto.longitude !== undefined) tournament.longitude = dto.longitude;
     if (dto.maxTeams !== undefined) tournament.maxTeams = dto.maxTeams;
     if (dto.startersCount !== undefined) {
       tournament.startersCount = dto.startersCount;
@@ -674,6 +700,7 @@ export class TournamentsService {
     tournament: Tournament,
     viewerId?: string,
     includeMembersCount = true,
+    geo?: { lat?: number | null; lng?: number | null },
   ) {
     const membership = viewerId
       ? await this.members.findOne({
@@ -704,6 +731,19 @@ export class TournamentsService {
       });
     }
 
+    let distanceKmValue: number | undefined;
+    if (
+      geo?.lat != null &&
+      geo?.lng != null &&
+      tournament.latitude != null &&
+      tournament.longitude != null
+    ) {
+      distanceKmValue = Math.round(
+        distanceKm(geo.lat, geo.lng, tournament.latitude, tournament.longitude) *
+          10,
+      ) / 10;
+    }
+
     return {
       id: tournament.id,
       name: tournament.name,
@@ -711,6 +751,9 @@ export class TournamentsService {
       description: tournament.description,
       startsAt: tournament.startsAt,
       location: tournament.location,
+      latitude: tournament.latitude,
+      longitude: tournament.longitude,
+      distanceKm: distanceKmValue,
       maxTeams: tournament.maxTeams,
       startersCount: tournament.startersCount,
       substitutesCount: tournament.startersCount,

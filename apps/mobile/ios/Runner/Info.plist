@@ -57,6 +57,8 @@
 	<string>MatchArena utilise tes photos pour la photo de profil.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>MatchArena utilise tes photos pour la photo de profil.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>MatchArena utilise ta position uniquement pour trouver des matchs et tournois à proximité. Tu peux aussi choisir une zone sans la partager.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

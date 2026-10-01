@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/network/api_client.dart';
 import '../../../design_system/components/fb_button.dart';
-import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
+import '../../geo/nearby_filters.dart';
+import '../../geo/place_picker.dart';
 
 class CreateTournamentScreen extends StatefulWidget {
   const CreateTournamentScreen({super.key});
@@ -14,19 +15,18 @@ class CreateTournamentScreen extends StatefulWidget {
 
 class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
   final _name = TextEditingController();
-  final _location = TextEditingController();
   final _description = TextEditingController();
   final _maxTeams = TextEditingController(text: '8');
   final _starters = TextEditingController(text: '5');
   DateTime _startsAt = DateTime.now().add(const Duration(days: 7));
   String _mode = 'classic';
   String _visibility = 'public';
+  GeoPoint? _place;
   bool _loading = false;
 
   @override
   void dispose() {
     _name.dispose();
-    _location.dispose();
     _description.dispose();
     _maxTeams.dispose();
     _starters.dispose();
@@ -62,12 +62,20 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
       );
       return;
     }
+    if (_place == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choisis un lieu sur la carte.')),
+      );
+      return;
+    }
 
     setState(() => _loading = true);
     try {
       await session.api.createTournament({
         'name': _name.text.trim(),
-        'location': _location.text.trim(),
+        'location': (_place!.label ?? _name.text).trim(),
+        'latitude': _place!.latitude,
+        'longitude': _place!.longitude,
         'description': _description.text.trim().isEmpty
             ? null
             : _description.text.trim(),
@@ -100,10 +108,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
             decoration: const InputDecoration(labelText: 'Nom du tournoi'),
           ),
           const SizedBox(height: 14),
-          TextField(
-            controller: _location,
-            decoration: const InputDecoration(labelText: 'Lieu'),
-          ),
+          PlacePickerField(onChanged: (p) => setState(() => _place = p)),
           const SizedBox(height: 14),
           TextField(
             controller: _description,
@@ -135,40 +140,35 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
             onTap: _pickDate,
           ),
           const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: _mode,
-            decoration: const InputDecoration(labelText: 'Mode'),
-            items: const [
-              DropdownMenuItem(value: 'classic', child: Text('Classique')),
-              DropdownMenuItem(
+          DropdownMenu<String>(
+            initialSelection: _mode,
+            label: const Text('Mode'),
+            expandedInsets: EdgeInsets.zero,
+            dropdownMenuEntries: const [
+              DropdownMenuEntry(value: 'classic', label: 'Classique'),
+              DropdownMenuEntry(
                 value: 'selection',
-                child: Text('Sélection / Mercato'),
+                label: 'Sélection / Mercato',
               ),
             ],
-            onChanged: (v) => setState(() => _mode = v ?? 'classic'),
+            onSelected: (v) => setState(() => _mode = v ?? 'classic'),
           ),
           const SizedBox(height: 14),
-          DropdownButtonFormField<String>(
-            initialValue: _visibility,
-            decoration: const InputDecoration(labelText: 'Visibilité'),
-            items: const [
-              DropdownMenuItem(value: 'public', child: Text('Public')),
-              DropdownMenuItem(value: 'private', child: Text('Privé (invitation)')),
+          DropdownMenu<String>(
+            initialSelection: _visibility,
+            label: const Text('Visibilité'),
+            expandedInsets: EdgeInsets.zero,
+            dropdownMenuEntries: const [
+              DropdownMenuEntry(value: 'public', label: 'Public'),
+              DropdownMenuEntry(value: 'private', label: 'Privé'),
             ],
-            onChanged: (v) => setState(() => _visibility = v ?? 'public'),
+            onSelected: (v) => setState(() => _visibility = v ?? 'public'),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
           FbButton(
-            label: 'Créer le tournoi',
+            label: _loading ? 'Création…' : 'Créer le tournoi',
             loading: _loading,
             onPressed: _submit,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'L’e-mail doit être vérifié. Les permissions sont contrôlées par le serveur.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: FutBoliaColors.inkMuted,
-                ),
           ),
         ],
       ),

@@ -30,6 +30,12 @@ export class PickupMatch {
   @Column({ length: 160 })
   location!: string;
 
+  @Column({ type: 'double precision', nullable: true })
+  latitude!: number | null;
+
+  @Column({ type: 'double precision', nullable: true })
+  longitude!: number | null;
+
   @Column({ type: 'varchar', default: TournamentVisibility.PUBLIC })
   visibility!: TournamentVisibility;
 

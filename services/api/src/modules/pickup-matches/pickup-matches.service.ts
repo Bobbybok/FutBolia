@@ -8,7 +8,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { TYPEORM_DATA_SOURCE } from '../../database/database.module';
 import {
   PickupMatchSide,
@@ -25,6 +25,7 @@ import { AddPickupMemberDto } from './dto/add-pickup-member.dto';
 import { UpdatePickupMemberDto } from './dto/update-pickup-member.dto';
 import { actorCanManageTournaments } from '../../common/staff-access';
 import { LiveEventsService } from '../realtime/services/live-events.service';
+import { distanceKm, haversineSql } from '../../common/geo';
 
 @Injectable()
 export class PickupMatchesService {
@@ -64,6 +65,8 @@ export class PickupMatchesService {
         playersPerTeam: dto.playersPerTeam,
         scheduledAt: new Date(dto.scheduledAt),
         location: dto.location.trim(),
+        latitude: dto.latitude,
+        longitude: dto.longitude,
         visibility,
         joinCode: null,
         status: PickupMatchStatus.OPEN,
@@ -83,7 +86,13 @@ export class PickupMatchesService {
     return this.getById(match.id, userId);
   }
 
-  async list(params: { mine?: boolean; userId?: string }) {
+  async list(params: {
+    mine?: boolean;
+    userId?: string;
+    lat?: number | null;
+    lng?: number | null;
+    radiusKm?: number;
+  }) {
     if (params.mine) {
       if (!params.userId) {
         throw new ForbiddenException('Authentification requise');
@@ -97,19 +106,44 @@ export class PickupMatchesService {
         })
         .orderBy('m.scheduled_at', 'ASC')
         .getMany();
-      return Promise.all(rows.map((m) => this.toPublic(m, params.userId)));
+      return Promise.all(
+        rows.map((m) => this.toPublic(m, params.userId, false, params)),
+      );
     }
 
-    const rows = await this.matches.find({
-      where: {
+    const qb = this.matches
+      .createQueryBuilder('m')
+      .where('m.visibility = :visibility', {
         visibility: TournamentVisibility.PUBLIC,
-        status: In([PickupMatchStatus.OPEN, PickupMatchStatus.FULL]),
-      },
-      order: { scheduledAt: 'ASC' },
-      take: 50,
-    });
+      })
+      .andWhere('m.status IN (:...statuses)', {
+        statuses: [PickupMatchStatus.OPEN, PickupMatchStatus.FULL],
+      })
+      .andWhere('m.latitude IS NOT NULL')
+      .andWhere('m.longitude IS NOT NULL');
 
-    return Promise.all(rows.map((m) => this.toPublic(m, params.userId)));
+    if (
+      params.lat != null &&
+      params.lng != null &&
+      params.radiusKm != null
+    ) {
+      const dist = haversineSql('m.latitude', 'm.longitude');
+      qb.addSelect(dist, 'distance_km')
+        .andWhere(`${dist} <= :radiusKm`, {
+          lat: params.lat,
+          lng: params.lng,
+          radiusKm: params.radiusKm,
+        })
+        .orderBy('distance_km', 'ASC')
+        .setParameters({ lat: params.lat, lng: params.lng });
+    } else {
+      qb.orderBy('m.scheduled_at', 'ASC');
+    }
+
+    const rows = await qb.take(50).getMany();
+    return Promise.all(
+      rows.map((m) => this.toPublic(m, params.userId, false, params)),
+    );
   }
 
   async getById(id: string, viewerId?: string) {
@@ -465,6 +499,7 @@ export class PickupMatchesService {
     match: PickupMatch,
     viewerId?: string,
     includeMembers = false,
+    geo?: { lat?: number | null; lng?: number | null },
   ) {
     const membership = viewerId
       ? await this.members.findOne({
@@ -513,12 +548,28 @@ export class PickupMatchesService {
         }));
     }
 
+    let distanceKmValue: number | undefined;
+    if (
+      geo?.lat != null &&
+      geo?.lng != null &&
+      match.latitude != null &&
+      match.longitude != null
+    ) {
+      distanceKmValue =
+        Math.round(
+          distanceKm(geo.lat, geo.lng, match.latitude, match.longitude) * 10,
+        ) / 10;
+    }
+
     return {
       id: match.id,
       playersPerTeam: match.playersPerTeam,
       capacity,
       scheduledAt: match.scheduledAt,
       location: match.location,
+      latitude: match.latitude,
+      longitude: match.longitude,
+      distanceKm: distanceKmValue,
       visibility: match.visibility,
       status: match.status,
       homeScore: match.homeScore,

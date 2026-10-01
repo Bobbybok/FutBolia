@@ -8,6 +8,9 @@ import '../../../design_system/components/fb_badge.dart';
 import '../../../design_system/components/fb_brand.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../auth/application/auth_session.dart';
+import '../../geo/geo_map_pins.dart';
+import '../../geo/nearby_filters.dart';
+import '../../geo/place_picker.dart';
 import 'create_pickup_match_screen.dart';
 import 'pickup_match_detail_screen.dart';
 
@@ -19,18 +22,22 @@ class PickupMatchesScreen extends StatefulWidget {
 }
 
 class _PickupMatchesScreenState extends State<PickupMatchesScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final TabController _tabs;
+  late final TabController _viewTabs;
   List<Map<String, dynamic>> _discover = [];
   List<Map<String, dynamic>> _mine = [];
   bool _loading = true;
   String? _error;
   final _live = LiveBindings();
+  int _radiusKm = defaultNearbyRadiusKm;
+  GeoPoint? _center;
 
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
+    _viewTabs = TabController(length: 2, vsync: this);
     _load();
     _live.listenLobby('pickup', () {
       if (mounted) _load(silent: true);
@@ -41,6 +48,7 @@ class _PickupMatchesScreenState extends State<PickupMatchesScreen>
   void dispose() {
     _live.dispose();
     _tabs.dispose();
+    _viewTabs.dispose();
     super.dispose();
   }
 
@@ -53,7 +61,11 @@ class _PickupMatchesScreenState extends State<PickupMatchesScreen>
     }
     try {
       final api = context.read<AuthSession>().api;
-      final discover = await api.listPickupMatches();
+      final discover = await api.listPickupMatches(
+        lat: _center?.latitude,
+        lng: _center?.longitude,
+        radiusKm: _radiusKm,
+      );
       final mine = await api.listPickupMatches(mine: true);
       if (!mounted) return;
       setState(() {
@@ -66,6 +78,15 @@ class _PickupMatchesScreenState extends State<PickupMatchesScreen>
     } finally {
       if (mounted && !silent) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _pickZone() async {
+    final place = await Navigator.of(context).push<GeoPoint>(
+      MaterialPageRoute(builder: (_) => const ZonePickerScreen()),
+    );
+    if (place == null) return;
+    setState(() => _center = place);
+    await _load();
   }
 
   Future<void> _open(Map<String, dynamic> match) async {
@@ -126,6 +147,26 @@ class _PickupMatchesScreenState extends State<PickupMatchesScreen>
                 Tab(text: 'Mes matchs'),
               ],
             ),
+            NearbyFiltersBar(
+              radiusKm: _radiusKm,
+              onRadiusChanged: (km) {
+                setState(() => _radiusKm = km);
+                _load();
+              },
+              center: _center,
+              onCenterChanged: (c) {
+                setState(() => _center = c);
+                _load();
+              },
+              onPickZone: _pickZone,
+            ),
+            TabBar(
+              controller: _viewTabs,
+              tabs: const [
+                Tab(text: 'Liste'),
+                Tab(text: 'Carte'),
+              ],
+            ),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -140,12 +181,28 @@ class _PickupMatchesScreenState extends State<PickupMatchesScreen>
                   : TabBarView(
                       controller: _tabs,
                       children: [
-                        _PickupMatchList(
-                          items: _discover,
-                          emptyLabel:
-                              'Aucun match public ouvert pour le moment.',
-                          onOpen: _open,
-                          onRefresh: _load,
+                        AnimatedBuilder(
+                          animation: _viewTabs,
+                          builder: (context, _) {
+                            if (_viewTabs.index == 1) {
+                              return Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: GeoMapPins(
+                                  items: _discover,
+                                  center: _center,
+                                  onOpen: _open,
+                                ),
+                              );
+                            }
+                            return _PickupMatchList(
+                              items: _discover,
+                              emptyLabel: _center == null
+                                  ? 'Aucun match public ouvert pour le moment.'
+                                  : 'Aucun match dans ce rayon.',
+                              onOpen: _open,
+                              onRefresh: _load,
+                            );
+                          },
                         ),
                         _PickupMatchList(
                           items: _mine,

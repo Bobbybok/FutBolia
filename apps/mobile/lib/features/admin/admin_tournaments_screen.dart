@@ -192,7 +192,9 @@ class _AdminTournamentDetailState extends State<_AdminTournamentDetail> {
         ],
       ),
     );
-    controller.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.dispose();
+    });
     return value;
   }
 
@@ -290,10 +292,20 @@ class _AdminTournamentDetailState extends State<_AdminTournamentDetail> {
       ),
     );
     if (ok != true || !mounted) return;
-    await _run(() async {
+    setState(() => _busy = true);
+    try {
       await _api.adminDeleteTournament(_id);
-      if (mounted) Navigator.of(context).pop();
-    });
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).pop();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Tournoi supprimé')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      setState(() => _busy = false);
+    }
   }
 
   @override

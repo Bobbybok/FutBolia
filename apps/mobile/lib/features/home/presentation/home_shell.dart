@@ -11,6 +11,7 @@ import '../../auth/application/auth_session.dart';
 import '../../auth/presentation/verify_email_screen.dart';
 import '../../chat/chat_overlay_controller.dart';
 import '../../chat/chat_popup.dart';
+import '../../geo/discovery_screen.dart';
 import '../../pickup_matches/presentation/pickup_matches_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../tournaments/presentation/tournaments_screen.dart';
@@ -369,6 +370,18 @@ class _HomeTab extends StatelessWidget {
               style: textTheme.bodyLarge?.copyWith(color: Colors.white70),
             ),
             const SizedBox(height: 22),
+            _HeroTile(
+              title: 'PRÈS DE MOI',
+              subtitle: 'Matchs et tournois autour de toi ou d’une zone',
+              asset: 'assets/images/bg_pitch.jpg',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const DiscoveryScreen()),
+                );
+              },
+              height: 110,
+            ),
+            const SizedBox(height: 12),
             _HeroTile(
               title: 'TOURNOIS',
               subtitle: 'Découvre, crée et gère tes compétitions amateurs',

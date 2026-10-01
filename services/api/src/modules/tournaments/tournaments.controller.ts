@@ -26,6 +26,10 @@ import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { UpdateTournamentDto } from './dto/update-tournament.dto';
 import { JoinTournamentDto } from './dto/join-tournament.dto';
 import { AddTournamentMemberDto } from './dto/add-tournament-member.dto';
+import {
+  parseCoord,
+  parseNearbyRadiusKm,
+} from '../../common/geo';
 
 @Controller('tournaments')
 export class TournamentsController {
@@ -36,12 +40,23 @@ export class TournamentsController {
   list(
     @Query('q') q: string | undefined,
     @Query('mine') mine: string | undefined,
+    @Query('lat') lat: string | undefined,
+    @Query('lng') lng: string | undefined,
+    @Query('radiusKm') radiusKm: string | undefined,
     @CurrentUser({ optional: true }) user: AuthUser | undefined,
   ) {
+    const parsedLat = parseCoord(lat);
+    const parsedLng = parseCoord(lng);
     return this.tournamentsService.list({
       q,
       mine: mine === 'true' || mine === '1',
       userId: user?.id,
+      lat: parsedLat,
+      lng: parsedLng,
+      radiusKm:
+        parsedLat != null && parsedLng != null
+          ? parseNearbyRadiusKm(radiusKm)
+          : undefined,
     });
   }
 

@@ -180,7 +180,10 @@ class _AdminUserDetailState extends State<AdminUserDetailScreen> {
         ],
       ),
     );
-    controller.dispose();
+    // Dispose after the dialog route has finished unmounting its TextField.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.dispose();
+    });
     return value;
   }
 

@@ -8,6 +8,9 @@ import '../../../design_system/components/fb_brand.dart';
 import '../../../design_system/tokens/colors.dart';
 import '../../../core/i18n/fr_labels.dart';
 import '../../auth/application/auth_session.dart';
+import '../../geo/geo_map_pins.dart';
+import '../../geo/nearby_filters.dart';
+import '../../geo/place_picker.dart';
 import 'create_tournament_screen.dart';
 import 'tournament_detail_screen.dart';
 import 'tournament_photos.dart';
@@ -20,19 +23,23 @@ class TournamentsScreen extends StatefulWidget {
 }
 
 class _TournamentsScreenState extends State<TournamentsScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final TabController _tabs;
+  late final TabController _viewTabs;
   final _search = TextEditingController();
   List<Map<String, dynamic>> _discover = [];
   List<Map<String, dynamic>> _mine = [];
   bool _loading = true;
   String? _error;
   final _live = LiveBindings();
+  int _radiusKm = defaultNearbyRadiusKm;
+  GeoPoint? _center;
 
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
+    _viewTabs = TabController(length: 2, vsync: this);
     _load();
     _live.listenLobby('tournament', () {
       if (mounted) _load(silent: true);
@@ -43,6 +50,7 @@ class _TournamentsScreenState extends State<TournamentsScreen>
   void dispose() {
     _live.dispose();
     _tabs.dispose();
+    _viewTabs.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -56,7 +64,12 @@ class _TournamentsScreenState extends State<TournamentsScreen>
     }
     try {
       final api = context.read<AuthSession>().api;
-      final discover = await api.listTournaments(query: _search.text.trim());
+      final discover = await api.listTournaments(
+        query: _search.text.trim(),
+        lat: _center?.latitude,
+        lng: _center?.longitude,
+        radiusKm: _radiusKm,
+      );
       final mine = await api.listTournaments(mine: true);
       if (!mounted) return;
       setState(() {
@@ -69,6 +82,15 @@ class _TournamentsScreenState extends State<TournamentsScreen>
     } finally {
       if (mounted && !silent) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _pickZone() async {
+    final place = await Navigator.of(context).push<GeoPoint>(
+      MaterialPageRoute(builder: (_) => const ZonePickerScreen()),
+    );
+    if (place == null) return;
+    setState(() => _center = place);
+    await _load();
   }
 
   @override
@@ -115,6 +137,27 @@ class _TournamentsScreenState extends State<TournamentsScreen>
                 Tab(text: 'Mes tournois'),
               ],
             ),
+            NearbyFiltersBar(
+              radiusKm: _radiusKm,
+              onRadiusChanged: (km) {
+                setState(() => _radiusKm = km);
+                _load();
+              },
+              center: _center,
+              onCenterChanged: (c) {
+                setState(() => _center = c);
+                _load();
+              },
+              onPickZone: _pickZone,
+            ),
+            const SizedBox(height: 4),
+            TabBar(
+              controller: _viewTabs,
+              tabs: const [
+                Tab(text: 'Liste'),
+                Tab(text: 'Carte'),
+              ],
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: TextField(
@@ -155,12 +198,28 @@ class _TournamentsScreenState extends State<TournamentsScreen>
                   : TabBarView(
                       controller: _tabs,
                       children: [
-                        _TournamentList(
-                          items: _discover,
-                          emptyLabel:
-                              'Aucun tournoi disponible pour le moment.',
-                          onOpen: _open,
-                          onRefresh: _load,
+                        AnimatedBuilder(
+                          animation: _viewTabs,
+                          builder: (context, _) {
+                            if (_viewTabs.index == 1) {
+                              return Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: GeoMapPins(
+                                  items: _discover,
+                                  center: _center,
+                                  onOpen: _open,
+                                ),
+                              );
+                            }
+                            return _TournamentList(
+                              items: _discover,
+                              emptyLabel: _center == null
+                                  ? 'Aucun tournoi public pour le moment.'
+                                  : 'Aucun tournoi dans ce rayon.',
+                              onOpen: _open,
+                              onRefresh: _load,
+                            );
+                          },
                         ),
                         _TournamentList(
                           items: _mine,

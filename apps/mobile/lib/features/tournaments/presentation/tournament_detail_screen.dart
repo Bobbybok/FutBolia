@@ -15,6 +15,7 @@ import '../../mercato/presentation/mercato_screen.dart';
 import '../../matches/presentation/matches_screen.dart';
 import '../../chat/presentation/tournament_chat_screen.dart';
 import '../../admin/admin_permissions.dart';
+import '../../geo/mini_map.dart';
 import 'edit_tournament_screen.dart';
 import 'tournament_photos.dart';
 
@@ -32,6 +33,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
   List<Map<String, dynamic>> _members = [];
   bool _loading = true;
   bool _joining = false;
+  bool _leaving = false;
   String? _error;
   final _live = LiveBindings();
 
@@ -40,9 +42,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
     super.initState();
     _load();
     _live.listenTournament(widget.tournamentId, (event) {
-      if (!mounted) return;
+      if (!mounted || _leaving) return;
       if (event['reason'] == 'tournament.deleted') {
-        _popAfterFrame(true);
+        _leave(true);
         return;
       }
       _load(silent: true);
@@ -56,6 +58,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
   }
 
   Future<void> _load({bool silent = false}) async {
+    if (_leaving) return;
     if (!silent) {
       setState(() {
         _loading = true;
@@ -71,24 +74,26 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
       } catch (_) {
         // Private tournament members may be hidden until joined.
       }
-      if (!mounted) return;
+      if (!mounted || _leaving) return;
       setState(() {
         _tournament = tournament;
         _members = members;
       });
     } on ApiException catch (e) {
-      if (!mounted) return;
+      if (!mounted || _leaving) return;
       if (silent) {
-        _popAfterFrame(true);
+        _leave(true);
         return;
       }
       setState(() => _error = e.message);
     } finally {
-      if (mounted && !silent) setState(() => _loading = false);
+      if (mounted && !_leaving && !silent) setState(() => _loading = false);
     }
   }
 
-  void _popAfterFrame([Object? result]) {
+  void _leave([Object? result]) {
+    if (_leaving || !mounted) return;
+    _leaving = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final nav = Navigator.of(context);
@@ -135,17 +140,17 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !mounted || _leaving) return;
 
-    final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     try {
       await context.read<AuthSession>().api.deleteTournament(widget.tournamentId);
       if (!mounted) return;
+      _leaving = true;
+      Navigator.of(context).pop(true);
       messenger.showSnackBar(
         const SnackBar(content: Text('Tournoi supprimé')),
       );
-      navigator.pop(true);
     } on ApiException catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
@@ -223,6 +228,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
           ),
           const SizedBox(height: 16),
           Text('Lieu : ${t['location']}'),
+          if (t['latitude'] != null && t['longitude'] != null) ...[
+            const SizedBox(height: 10),
+            MiniMapPreview(
+              latitude: (t['latitude'] as num).toDouble(),
+              longitude: (t['longitude'] as num).toDouble(),
+              label: t['location']?.toString(),
+            ),
+          ],
           Text('Date : ${_formatDate(t['startsAt'])}'),
           Text('Équipes max : ${t['maxTeams']}'),
           Text('Titulaires / remplaçants : ${t['startersCount']} / ${t['startersCount']}'),

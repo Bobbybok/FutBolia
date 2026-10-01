@@ -233,4 +233,50 @@ export async function ensureSchema(ds: DataSource): Promise<void> {
     CREATE INDEX IF NOT EXISTS tournament_photos_tournament_id_idx
       ON tournament_photos (tournament_id)
   `);
+
+  // --- Geo v1 (free OSM / Nominatim client-side; coords stored here) ---
+  await ds.query(`
+    ALTER TABLE tournaments
+      ADD COLUMN IF NOT EXISTS latitude double precision
+  `);
+  await ds.query(`
+    ALTER TABLE tournaments
+      ADD COLUMN IF NOT EXISTS longitude double precision
+  `);
+  await ds.query(`
+    ALTER TABLE pickup_matches
+      ADD COLUMN IF NOT EXISTS latitude double precision
+  `);
+  await ds.query(`
+    ALTER TABLE pickup_matches
+      ADD COLUMN IF NOT EXISTS longitude double precision
+  `);
+  await ds.query(`
+    CREATE INDEX IF NOT EXISTS tournaments_lat_lng_idx
+      ON tournaments (latitude, longitude)
+      WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+  `);
+  await ds.query(`
+    CREATE INDEX IF NOT EXISTS pickup_matches_lat_lng_idx
+      ON pickup_matches (latitude, longitude)
+      WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+  `);
+  await ds.query(`
+    CREATE TABLE IF NOT EXISTS schema_flags (
+      key text PRIMARY KEY,
+      applied_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  // One-shot: wipe legacy text-only events before geo was required.
+  await ds.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM schema_flags WHERE key = 'geo_v1_purge_events'
+      ) THEN
+        DELETE FROM pickup_matches;
+        DELETE FROM tournaments;
+        INSERT INTO schema_flags (key) VALUES ('geo_v1_purge_events');
+      END IF;
+    END $$;
+  `);
 }

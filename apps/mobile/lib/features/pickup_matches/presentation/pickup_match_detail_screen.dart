@@ -14,6 +14,7 @@ import '../../admin/admin_permissions.dart';
 import '../../profile/presentation/public_profile_screen.dart';
 import '../../private_chat/conversation_screen.dart';
 import '../../profile/widgets/player_avatar.dart';
+import '../../geo/mini_map.dart';
 
 class PickupMatchDetailScreen extends StatefulWidget {
   const PickupMatchDetailScreen({super.key, required this.matchId});
@@ -290,6 +291,14 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
           ),
           const SizedBox(height: 16),
           Text('Lieu : ${m['location']}'),
+          if (m['latitude'] != null && m['longitude'] != null) ...[
+            const SizedBox(height: 10),
+            MiniMapPreview(
+              latitude: (m['latitude'] as num).toDouble(),
+              longitude: (m['longitude'] as num).toDouble(),
+              label: m['location']?.toString(),
+            ),
+          ],
           Text('Date : ${_formatDate(m['scheduledAt'])}'),
           Text('Format : ${m['playersPerTeam']} vs ${m['playersPerTeam']}'),
           if (isMember)

@@ -2,6 +2,7 @@ import {
   IsDateString,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -26,6 +27,18 @@ export class CreatePickupMatchDto {
   @MinLength(2)
   @MaxLength(160)
   location!: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude!: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude!: number;
 
   @IsOptional()
   @IsEnum(TournamentVisibility)

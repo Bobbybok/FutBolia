@@ -4,6 +4,8 @@ import '../../../core/i18n/fr_labels.dart';
 import '../../../core/network/api_client.dart';
 import '../../../design_system/components/fb_button.dart';
 import '../../auth/application/auth_session.dart';
+import '../../geo/nearby_filters.dart';
+import '../../geo/place_picker.dart';
 
 class EditTournamentScreen extends StatefulWidget {
   const EditTournamentScreen({super.key, required this.tournament});
@@ -16,7 +18,6 @@ class EditTournamentScreen extends StatefulWidget {
 
 class _EditTournamentScreenState extends State<EditTournamentScreen> {
   late final TextEditingController _name;
-  late final TextEditingController _location;
   late final TextEditingController _description;
   late final TextEditingController _maxTeams;
   late final TextEditingController _starters;
@@ -24,6 +25,7 @@ class _EditTournamentScreenState extends State<EditTournamentScreen> {
   late String _mode;
   late String _visibility;
   late String _status;
+  GeoPoint? _place;
   bool _loading = false;
 
   @override
@@ -31,7 +33,6 @@ class _EditTournamentScreenState extends State<EditTournamentScreen> {
     super.initState();
     final t = widget.tournament;
     _name = TextEditingController(text: t['name']?.toString() ?? '');
-    _location = TextEditingController(text: t['location']?.toString() ?? '');
     _description =
         TextEditingController(text: t['description']?.toString() ?? '');
     _maxTeams = TextEditingController(text: '${t['maxTeams'] ?? 8}');
@@ -41,12 +42,20 @@ class _EditTournamentScreenState extends State<EditTournamentScreen> {
     _mode = t['mode']?.toString() ?? 'classic';
     _visibility = t['visibility']?.toString() ?? 'public';
     _status = t['status']?.toString() ?? 'registration_open';
+    final lat = (t['latitude'] as num?)?.toDouble();
+    final lng = (t['longitude'] as num?)?.toDouble();
+    if (lat != null && lng != null) {
+      _place = GeoPoint(
+        latitude: lat,
+        longitude: lng,
+        label: t['location']?.toString(),
+      );
+    }
   }
 
   @override
   void dispose() {
     _name.dispose();
-    _location.dispose();
     _description.dispose();
     _maxTeams.dispose();
     _starters.dispose();
@@ -73,13 +82,21 @@ class _EditTournamentScreenState extends State<EditTournamentScreen> {
   }
 
   Future<void> _submit() async {
+    if (_place == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choisis un lieu sur la carte.')),
+      );
+      return;
+    }
     setState(() => _loading = true);
     try {
       await context.read<AuthSession>().api.updateTournament(
         widget.tournament['id'].toString(),
         {
           'name': _name.text.trim(),
-          'location': _location.text.trim(),
+          'location': (_place!.label ?? _name.text).trim(),
+          'latitude': _place!.latitude,
+          'longitude': _place!.longitude,
           'description': _description.text.trim().isEmpty
               ? null
               : _description.text.trim(),
@@ -104,6 +121,7 @@ class _EditTournamentScreenState extends State<EditTournamentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = widget.tournament;
     return Scaffold(
       appBar: AppBar(title: const Text('Modifier le tournoi')),
       body: ListView(
@@ -114,9 +132,11 @@ class _EditTournamentScreenState extends State<EditTournamentScreen> {
             decoration: const InputDecoration(labelText: 'Nom du tournoi'),
           ),
           const SizedBox(height: 14),
-          TextField(
-            controller: _location,
-            decoration: const InputDecoration(labelText: 'Lieu'),
+          PlacePickerField(
+            initialLabel: t['location']?.toString(),
+            initialLatitude: (t['latitude'] as num?)?.toDouble(),
+            initialLongitude: (t['longitude'] as num?)?.toDouble(),
+            onChanged: (p) => setState(() => _place = p),
           ),
           const SizedBox(height: 14),
           TextField(
