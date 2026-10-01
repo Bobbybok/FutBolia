@@ -43,7 +43,11 @@ class LiveBindings {
 
   void _run(VoidCallback onChange) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 250), onChange);
+    // Defer past the current frame so socket-driven setState / Navigator
+    // calls never run while a route transition has the navigator locked.
+    _debounce = Timer(const Duration(milliseconds: 250), () {
+      WidgetsBinding.instance.addPostFrameCallback((_) => onChange());
+    });
   }
 
   void dispose() {

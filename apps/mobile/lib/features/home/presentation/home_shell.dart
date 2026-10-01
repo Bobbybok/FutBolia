@@ -26,18 +26,41 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int _index = 0;
   int _unread = 0;
   StreamSubscription<void>? _inboxSub;
+  late final bool _isStaff;
+  late final bool _isAdmin;
+  late final List<Widget> _pages;
 
   static const _chatDestIndex = 3;
-  static const _tabCount = 5;
 
-  final _navKeys = List<GlobalKey<NavigatorState>>.generate(
-    _tabCount,
-    (_) => GlobalKey<NavigatorState>(),
-  );
+  final _navKeys = <GlobalKey<NavigatorState>>[];
 
   @override
   void initState() {
     super.initState();
+    final user = context.read<AuthSession>().user!;
+    _isStaff = user.isStaff;
+    _isAdmin = user.isAdmin;
+
+    final pageCount = _isStaff ? 5 : 4;
+    _navKeys.addAll(
+      List.generate(pageCount, (_) => GlobalKey<NavigatorState>()),
+    );
+    _pages = [
+      _tabNavigator(
+        index: 0,
+        child: _HomeTab(
+          onOpenTournaments: () => _selectTab(1),
+          onOpenMatches: () => _selectTab(2),
+          onOpenMessages: () => _selectTab(3),
+          onOpenProfile: () => _selectTab(4),
+        ),
+      ),
+      _tabNavigator(index: 1, child: const TournamentsScreen()),
+      _tabNavigator(index: 2, child: const PickupMatchesScreen()),
+      _tabNavigator(index: 3, child: const ProfileScreen()),
+      if (_isStaff) _tabNavigator(index: 4, child: const AdminHomeScreen()),
+    ];
+
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -139,72 +162,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final session = context.watch<AuthSession>();
-    final user = session.user!;
-
-    final pages = [
-      _tabNavigator(
-        index: 0,
-        child: _HomeTab(
-          onOpenTournaments: () => _selectTab(1),
-          onOpenMatches: () => _selectTab(2),
-          onOpenMessages: () => _selectTab(3),
-          onOpenProfile: () => _selectTab(4),
-        ),
-      ),
-      _tabNavigator(index: 1, child: const TournamentsScreen()),
-      _tabNavigator(index: 2, child: const PickupMatchesScreen()),
-      _tabNavigator(index: 3, child: const ProfileScreen()),
-      if (user.isStaff)
-        _tabNavigator(index: 4, child: const AdminHomeScreen()),
-    ];
-
-    final chatOpen = context.watch<ChatOverlayController>().visible;
-    final unreadLabel = _unread > 99 ? '99+' : '$_unread';
-    final messagesIcon = Badge(
-      isLabelVisible: _unread > 0 && !chatOpen,
-      label: Text(unreadLabel),
-      child: Icon(chatOpen ? Icons.chat_bubble : Icons.chat_bubble_outline),
+    final emailVerified = context.select<AuthSession, bool>(
+      (s) => s.user?.emailVerified ?? false,
     );
-
-    final destinations = [
-      const NavigationDestination(
-        icon: Icon(Icons.home_outlined),
-        selectedIcon: Icon(Icons.home),
-        label: 'Accueil',
-      ),
-      const NavigationDestination(
-        icon: Icon(Icons.emoji_events_outlined),
-        selectedIcon: Icon(Icons.emoji_events),
-        label: 'Tournois',
-      ),
-      const NavigationDestination(
-        icon: Icon(Icons.sports_soccer_outlined),
-        selectedIcon: Icon(Icons.sports_soccer),
-        label: 'Matchs',
-      ),
-      NavigationDestination(
-        icon: messagesIcon,
-        selectedIcon: messagesIcon,
-        label: 'Chat',
-      ),
-      const NavigationDestination(
-        icon: Icon(Icons.person_outline),
-        selectedIcon: Icon(Icons.person),
-        label: 'Profil',
-      ),
-      if (user.isStaff)
-        NavigationDestination(
-          icon: Icon(
-            user.isAdmin
-                ? Icons.admin_panel_settings_outlined
-                : Icons.shield_outlined,
-          ),
-          label: user.isAdmin ? 'Admin' : 'Modo',
-        ),
-    ];
-
-    final maxIndex = pages.length - 1;
+    final maxIndex = _pages.length - 1;
     final selectedPage = _index > maxIndex ? 0 : _index;
     final selectedDest =
         selectedPage >= _chatDestIndex ? selectedPage + 1 : selectedPage;
@@ -215,15 +176,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       child: Stack(
         children: [
           Scaffold(
-            body: IndexedStack(index: selectedPage, children: pages),
-            bottomNavigationBar: NavigationBar(
-              selectedIndex: selectedDest,
-              onDestinationSelected: _selectTab,
-              destinations: destinations,
-              height: 68,
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            body: IndexedStack(index: selectedPage, children: _pages),
+            bottomNavigationBar: _BottomNav(
+              selectedDest: selectedDest,
+              unread: _unread,
+              isStaff: _isStaff,
+              isAdmin: _isAdmin,
+              onSelect: _selectTab,
             ),
-            floatingActionButton: !user.emailVerified && _index == 0
+            floatingActionButton: !emailVerified && _index == 0
                 ? FloatingActionButton.extended(
                     onPressed: () {
                       Navigator.of(context).push(
@@ -242,6 +203,76 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           const _ServerWakeBanner(),
         ],
       ),
+    );
+  }
+}
+
+class _BottomNav extends StatelessWidget {
+  const _BottomNav({
+    required this.selectedDest,
+    required this.unread,
+    required this.isStaff,
+    required this.isAdmin,
+    required this.onSelect,
+  });
+
+  final int selectedDest;
+  final int unread;
+  final bool isStaff;
+  final bool isAdmin;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final chatOpen = context.select<ChatOverlayController, bool>((c) => c.visible);
+    final unreadLabel = unread > 99 ? '99+' : '$unread';
+    final messagesIcon = Badge(
+      isLabelVisible: unread > 0 && !chatOpen,
+      label: Text(unreadLabel),
+      child: Icon(chatOpen ? Icons.chat_bubble : Icons.chat_bubble_outline),
+    );
+
+    return NavigationBar(
+      selectedIndex: selectedDest,
+      onDestinationSelected: onSelect,
+      height: 68,
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+      destinations: [
+        const NavigationDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: 'Accueil',
+        ),
+        const NavigationDestination(
+          icon: Icon(Icons.emoji_events_outlined),
+          selectedIcon: Icon(Icons.emoji_events),
+          label: 'Tournois',
+        ),
+        const NavigationDestination(
+          icon: Icon(Icons.sports_soccer_outlined),
+          selectedIcon: Icon(Icons.sports_soccer),
+          label: 'Matchs',
+        ),
+        NavigationDestination(
+          icon: messagesIcon,
+          selectedIcon: messagesIcon,
+          label: 'Chat',
+        ),
+        const NavigationDestination(
+          icon: Icon(Icons.person_outline),
+          selectedIcon: Icon(Icons.person),
+          label: 'Profil',
+        ),
+        if (isStaff)
+          NavigationDestination(
+            icon: Icon(
+              isAdmin
+                  ? Icons.admin_panel_settings_outlined
+                  : Icons.shield_outlined,
+            ),
+            label: isAdmin ? 'Admin' : 'Modo',
+          ),
+      ],
     );
   }
 }

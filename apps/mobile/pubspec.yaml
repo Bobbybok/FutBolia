@@ -40,5 +40,6 @@ flutter:
   assets:
     - assets/images/bg_stadium_night.jpg
     - assets/images/bg_pitch.jpg
+    - assets/images/bg_login.jpg
     - assets/images/logo_matcharena.png
     - assets/images/app_icon.png

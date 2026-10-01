@@ -43,7 +43,7 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
     _live.listenPickup(widget.matchId, (event) {
       if (!mounted) return;
       if (event['reason'] == 'pickup.deleted') {
-        Navigator.of(context).pop(true);
+        _popAfterFrame(true);
         return;
       }
       _load(silent: true);
@@ -81,13 +81,21 @@ class _PickupMatchDetailScreenState extends State<PickupMatchDetailScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       if (silent) {
-        Navigator.of(context).pop(true);
+        _popAfterFrame(true);
         return;
       }
       setState(() => _error = e.message);
     } finally {
       if (mounted && !silent) setState(() => _loading = false);
     }
+  }
+
+  void _popAfterFrame([Object? result]) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final nav = Navigator.of(context);
+      if (nav.canPop()) nav.pop(result);
+    });
   }
 
   Future<void> _join() async {

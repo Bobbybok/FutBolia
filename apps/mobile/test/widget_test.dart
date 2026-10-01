@@ -35,7 +35,8 @@ void main() {
 
     expect(find.byType(Image), findsWidgets);
     expect(find.text('Se connecter'), findsOneWidget);
-    expect(find.textContaining('MatchArena'), findsWidgets);
+    expect(find.textContaining('commence ici'), findsOneWidget);
+    expect(find.text('Créer un compte'), findsOneWidget);
   });
 
   testWidgets('Home shell keeps Chat and Profil in the bar', (tester) async {

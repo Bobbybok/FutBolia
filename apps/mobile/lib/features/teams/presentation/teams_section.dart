@@ -407,7 +407,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
           if (!mounted) return;
           if (event['reason'] == 'team.deleted' &&
               event['teamId']?.toString() == widget.teamId) {
-            Navigator.of(context).pop();
+            _popAfterFrame();
             return;
           }
           _load(silent: true);
@@ -416,13 +416,21 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       if (silent) {
-        Navigator.of(context).pop();
+        _popAfterFrame();
         return;
       }
       setState(() => _error = e.message);
     } finally {
       if (mounted && !silent) setState(() => _loading = false);
     }
+  }
+
+  void _popAfterFrame([Object? result]) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final nav = Navigator.of(context);
+      if (nav.canPop()) nav.pop(result);
+    });
   }
 
   Future<void> _addMember({String? presetSlot}) async {
